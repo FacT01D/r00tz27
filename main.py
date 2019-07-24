@@ -1,5 +1,10 @@
-from machine import Pin, PWM
-import time, random
+from machine import Pin, PWM, random
+import time
+
+
+def random_choice(from_list):
+    idx = random(0, len(from_list) - 1)
+    return from_list[idx]
 
 
 class Button:
@@ -63,7 +68,7 @@ class Buzzer:
 
         synced_light = None
         if self.lights:
-            synced_light = random.choice(self.lights)
+            synced_light = random_choice(self.lights)
             synced_light.on()
 
         time.sleep(duration / 1000)
@@ -154,7 +159,7 @@ class Lights:
         last_led = None
         while times:
             times -= 1
-            last_led = random.choice([led for led in self.leds if led != last_led])
+            last_led = random_choice([led for led in self.leds if led != last_led])
             last_led.blink()
 
     def all_blink(self, times=5):
@@ -243,7 +248,7 @@ class SimonSays:
         challenge = []
         while length:
             length -= 1
-            challenge.append(random.randrange(0, len(self.buttons)))
+            challenge.append(random(0, len(self.buttons) - 1))
         return challenge
 
     def display_challenge(self, challenge):
@@ -279,6 +284,10 @@ class SimonSays:
         self.lights.all_blink(times=max(2, len(self.current_challenge) - 3))
         time.sleep(0.1)
         self.__init__()
+
+
+class BoardState:
+    pass
 
 
 SimonSays()
