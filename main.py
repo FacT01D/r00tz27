@@ -1,5 +1,5 @@
 from machine import Pin, PWM, random
-import time
+import collections, network, time, espnow
 
 
 def random_choice(from_list):
@@ -286,8 +286,73 @@ class SimonSays:
         self.__init__()
 
 
+State = collections.namedtuple("State", "name enter exit")
+
+
 class BoardState:
-    pass
+    STATE_TABLE = {
+        # (current_state, event): next_state
+        ("asleep", "wake"): "searching_for_opponent",
+        ("searching_for_opponent", "opponent_found"): "game_launching",
+        ("searching_for_opponent", "opponent_not_found"): "asleep",
+    }
+
+    def __init__(self, initial_state):
+        self.current_state = self.construct_state(initial_state)
+        self.current_state.enter()
+
+    def construct_state(self, name):
+        state_construction_method = getattr(self, name)
+        enter_method, exit_method = state_construction_method()
+        return State(name, enter_method, exit_method)
+
+    def get_next_state_for(self, state, event):
+        return self.STATE_TABLE[(state.name, event)]
+
+    def fire(self, event):
+        print("firing %s" % event)
+        next_state = self.get_next_state_for(self.current_state, event)
+
+        if next_state.name != self.current_state.name:
+            self.current_state.exit()
+            self.current_state = next_state
+            self.current_state.enter()
+
+    def asleep(self):
+        def enter():
+            print("entering asleep")
+            button_pins = [27, 33, 15, 32]
+
+            def fire_wake(*args):
+                print(args)
+
+            self.buttons = [Button(pin, handler=fire_wake) for pin in button_pins]
+
+        def exit():
+            print("exiting asleep")
+
+        return enter, exit
+
+    def searching_for_opponent(self):
+        def enter():
+            print("entering search")
+            w = network.WLAN(network.AP_IF)
+            w.active(True)
+            w.config(channel=1)
+            w.config(protocol=network.MODE_LR)
+
+            espnow.init()
+            espnow.set_pmk("0123456789abcdef")
+            espnow.set_recv_cb(lambda *args: self.fire("opponent_found"))
+
+            BROADCAST = b"\xFF" * 6
+            espnow.add_peer(w, BROADCAST)
+
+        def exit():
+            print("exiting search")
+
+    def opponent_found(self):
+        pass
 
 
-SimonSays()
+board = BoardState(initial_state="asleep")
