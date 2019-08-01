@@ -27,6 +27,9 @@ class Button:
     def disable(self):
         self.pin.init(handler=None, trigger=Pin.IRQ_DISABLE)
 
+    def update(self, *args, **kwargs):
+        self.pin.init(**kwargs)
+
 
 class Buzzer:
     """
@@ -286,7 +289,7 @@ class SimonSays:
         self.__init__()
 
 
-State = collections.namedtuple("State", "name enter exit")
+# State = collections.namedtuple("State", "name enter exit")
 
 
 class BoardState:
@@ -355,4 +358,97 @@ class BoardState:
         pass
 
 
-board = BoardState(initial_state="asleep")
+# board = BoardState(initial_state="asleep")
+
+
+class IdleState:
+    def __init__(self, state_machine):
+        self.state_machine = state_machine
+
+    def enter(self):
+        self.log("entering...")
+        self.bind_buttons()
+        self.on_enter()
+        self.log("entered")
+
+    def exit(self):
+        self.log("exiting...")
+        self.unbind_buttons()
+        self.on_exit()
+        self.log("exited")
+
+    def on_enter(self):
+        pass
+
+    def on_exit(self):
+        pass
+
+    def on_button_push(self, button_number):
+        pass
+
+    def on_button_release(self, button_number):
+        pass
+
+    def unbind_buttons(self):
+        for button in self.state_machine.buttons:
+            button.update(handler=None)
+
+    def bind_buttons(self):
+        for button in self.state_machine.buttons:
+            button.update(handler=self.button_callback)
+
+    def button_callback(self, pin):
+        button_number = self.button_number_from_pin(pin)
+        if pin.value() == 0:
+            self.state_machine.lights[button_number].on()
+            self.on_button_push(button_number)
+        if pin.value() == 1:
+            self.state_machine.lights[button_number].off()
+            self.on_button_release(button_number)
+
+    def button_number_from_pin(self, pin):
+        for i, button in enumerate(self.state_machine.buttons):
+            if button.pin == pin:
+                return i
+
+    def log(self, msg):
+        print("%s: %s" % (self.__class__.__name__, msg))
+
+
+class SearchingForOpponentState(IdleState):
+    def on_enter(self):
+        pass
+
+    def on_exit(self):
+        pass
+
+
+class StateMachine:
+    def __init__(self, initial_state="idle"):
+        self.states = {
+            "idle": IdleState,
+            "searching_for_opponent": SearchingForOpponentState,
+            "playing_simon_says": SimonSays,
+        }
+
+        BUTTON_PINS = [27, 33, 15, 32]
+        self.buttons = [
+            Button(pin, trigger=Pin.IRQ_ANYEDGE, debounce=1000) for pin in BUTTON_PINS
+        ]
+
+        self.lights = Lights()
+        self.board_led = LED(13)
+        self.board_led.on()
+
+        self.current_state = None
+        self.go_to_state(initial_state)
+
+    def go_to_state(self, name):
+        if self.current_state:
+            self.current_state.exit()
+
+        self.current_state = self.states[name](state_machine=self)
+        self.current_state.enter()
+
+
+state_machine = StateMachine()
