@@ -289,79 +289,7 @@ class SimonSays:
         self.__init__()
 
 
-# State = collections.namedtuple("State", "name enter exit")
-
-
-class BoardState:
-    STATE_TABLE = {
-        # (current_state, event): next_state
-        ("asleep", "wake"): "searching_for_opponent",
-        ("searching_for_opponent", "opponent_found"): "game_launching",
-        ("searching_for_opponent", "opponent_not_found"): "asleep",
-    }
-
-    def __init__(self, initial_state):
-        self.current_state = self.construct_state(initial_state)
-        self.current_state.enter()
-
-    def construct_state(self, name):
-        state_construction_method = getattr(self, name)
-        enter_method, exit_method = state_construction_method()
-        return State(name, enter_method, exit_method)
-
-    def get_next_state_for(self, state, event):
-        return self.STATE_TABLE[(state.name, event)]
-
-    def fire(self, event):
-        print("firing %s" % event)
-        next_state = self.get_next_state_for(self.current_state, event)
-
-        if next_state.name != self.current_state.name:
-            self.current_state.exit()
-            self.current_state = next_state
-            self.current_state.enter()
-
-    def asleep(self):
-        def enter():
-            print("entering asleep")
-            button_pins = [27, 33, 15, 32]
-
-            def fire_wake(*args):
-                print(args)
-
-            self.buttons = [Button(pin, handler=fire_wake) for pin in button_pins]
-
-        def exit():
-            print("exiting asleep")
-
-        return enter, exit
-
-    def searching_for_opponent(self):
-        def enter():
-            print("entering search")
-            w = network.WLAN(network.AP_IF)
-            w.active(True)
-            w.config(channel=1)
-            w.config(protocol=network.MODE_LR)
-
-            espnow.init()
-            espnow.set_pmk("0123456789abcdef")
-            espnow.set_recv_cb(lambda *args: self.fire("opponent_found"))
-
-            BROADCAST = b"\xFF" * 6
-            espnow.add_peer(w, BROADCAST)
-
-        def exit():
-            print("exiting search")
-
-    def opponent_found(self):
-        pass
-
-
-# board = BoardState(initial_state="asleep")
-
-
-class IdleState:
+class BaseState:
     def __init__(self, state_machine):
         self.state_machine = state_machine
 
@@ -373,7 +301,6 @@ class IdleState:
 
     def exit(self):
         self.log("exiting...")
-        self.unbind_buttons()
         self.on_exit()
         self.log("exited")
 
@@ -390,10 +317,12 @@ class IdleState:
         pass
 
     def unbind_buttons(self):
+        self.log("unbinding buttons...")
         for button in self.state_machine.buttons:
             button.update(handler=None)
 
     def bind_buttons(self):
+        self.log("binding buttons...")
         for button in self.state_machine.buttons:
             button.update(handler=self.button_callback)
 
@@ -415,12 +344,32 @@ class IdleState:
         print("%s: %s" % (self.__class__.__name__, msg))
 
 
-class SearchingForOpponentState(IdleState):
-    def on_enter(self):
-        pass
+class IdleState(BaseState):
+    def on_button_release(self, button_number):
+        self.state_machine.go_to_state("searching_for_opponent")
 
-    def on_exit(self):
-        pass
+
+class SearchingForOpponentState(BaseState):
+    def on_enter(self):
+        self.w = network.WLAN(network.AP_IF)
+        self.w.active(True)
+        self.w.config(channel=1)
+        self.w.config(protocol=network.MODE_LR)
+
+        espnow.deinit()  # in case espnow was already init'd -- a no-op if not
+        espnow.init()
+        espnow.set_pmk("0123456789abcdef")
+        espnow.set_recv_cb(self.on_opponent_found)
+
+        self.BROADCAST_ADDR = b"\xFF" * 6
+        espnow.add_peer(self.w, self.BROADCAST_ADDR)
+
+    def on_button_release(self, button_number):
+        self.log("anyone there?")
+        espnow.send(self.BROADCAST_ADDR, "anyone there?")
+
+    def on_opponent_found(self, *args, **kwargs):
+        print("OPPONENT FOUND: %s %s" % (args, kwargs))
 
 
 class StateMachine:
@@ -444,6 +393,14 @@ class StateMachine:
         self.go_to_state(initial_state)
 
     def go_to_state(self, name):
+        print(
+            "STATE TRANSITION: %s -> %s"
+            % (
+                self.current_state.__class__.__name__ if self.current_state else None,
+                self.states[name].__name__,
+            )
+        )
+
         if self.current_state:
             self.current_state.exit()
 
