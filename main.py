@@ -176,117 +176,8 @@ class Lights:
                 led.off()
 
 
-class SimonSays:
-    def __init__(self, button_pins=None):
-        if not button_pins:
-            button_pins = [27, 33, 15, 32]
-
-        self.buttons = [
-            Button(
-                pin,
-                handler=self.button_callback,
-                trigger=Pin.IRQ_ANYEDGE,
-                debounce=1000,
-            )
-            for pin in button_pins
-        ]
-
-        self.lights = Lights()
-
-        self.state = None
-        self.current_challenge = []
-        self.current_guess_ct = 0
-
-        self.board_led = LED(13)
-        self.board_led.on()
-
-    def button_callback(self, pin):
-        button_number = self.button_number_from_pin(pin)
-        if pin.value() == 0:
-            self.on_button_push(button_number)
-        if pin.value() == 1:
-            self.on_button_release(button_number)
-
-    def button_number_from_pin(self, pin):
-        for i, button in enumerate(self.buttons):
-            if button.pin == pin:
-                return i
-
-    def on_button_push(self, button_number):
-        if self.state is None or self.state == "losing":
-            self.lights[button_number].on()
-        elif self.state == "guessing":
-            self.lights[button_number].on()
-            self.count_guess(button_number)
-
-    def on_button_release(self, button_number):
-        self.lights[button_number].off()
-
-        if self.state is None:
-            self.board_led.off()
-            self.start_game()
-        elif self.state == "winning":
-            self.win_round()
-        elif self.state == "losing":
-            self.lights[button_number].on()
-            self.lose()
-
-    def start_game(self):
-        self.state = "launching"
-        self.lights.cycle(times=1)
-        time.sleep(1)
-        self.challenge()
-
-    def challenge(self):
-        self.state = "challenging"
-        self.current_challenge = self.build_new_challenge(
-            length=len(self.current_challenge) + 1
-            if self.current_challenge
-            else 3  # first round is 3 flashes
-        )
-        self.display_challenge(self.current_challenge)
-        self.start_guessing()
-
-    def build_new_challenge(self, length):
-        challenge = []
-        while length:
-            length -= 1
-            challenge.append(random(0, len(self.buttons) - 1))
-        return challenge
-
-    def display_challenge(self, challenge):
-        self.state = "displaying"
-        for num in challenge:
-            self.lights[num].blink(duration=0.4)
-            time.sleep(0.2)
-
-    def start_guessing(self):
-        self.state = "guessing"
-        self.current_guess_ct = 0
-
-    def count_guess(self, pushed_button_number):
-        if self.current_challenge[self.current_guess_ct] == pushed_button_number:
-            self.current_guess_ct += 1
-
-            if self.current_guess_ct == len(self.current_challenge):
-                self.state = "winning"
-        else:
-            self.state = "losing"
-
-    def win_round(self):
-        self.lights.confetti(times=15)
-        time.sleep(1)
-        self.challenge()
-
-    def lose(self):
-        for button in self.buttons:
-            button.disable()
-
-        correct_guess = self.current_challenge[self.current_guess_ct]
-        self.lights[correct_guess].blink(duration=0.2, times=2)
-        self.lights.all_blink(times=max(2, len(self.current_challenge) - 3))
-        time.sleep(0.1)
-        self.__init__()
+BROADCAST_ADDR = b"\xFF" * 6
+wifi = network.WLAN(network.AP_IF)
 
 
 class BaseState:
@@ -351,25 +242,146 @@ class IdleState(BaseState):
 
 class SearchingForOpponentState(BaseState):
     def on_enter(self):
-        self.w = network.WLAN(network.AP_IF)
-        self.w.active(True)
-        self.w.config(channel=1)
-        self.w.config(protocol=network.MODE_LR)
+        wifi.active(True)
+        wifi.config(channel=1)
+        wifi.config(protocol=network.MODE_LR)
 
         espnow.deinit()  # in case espnow was already init'd -- a no-op if not
         espnow.init()
         espnow.set_pmk("0123456789abcdef")
-        espnow.set_recv_cb(self.on_opponent_found)
+        espnow.set_recv_cb(self.on_message_received)
 
-        self.BROADCAST_ADDR = b"\xFF" * 6
-        espnow.add_peer(self.w, self.BROADCAST_ADDR)
+        espnow.add_peer(wifi, BROADCAST_ADDR)
 
     def on_button_release(self, button_number):
-        self.log("anyone there?")
-        espnow.send(self.BROADCAST_ADDR, "anyone there?")
+        self.log("sending challenge...")
+        espnow.send(BROADCAST_ADDR, "anyone there?")
 
-    def on_opponent_found(self, *args, **kwargs):
-        print("OPPONENT FOUND: %s %s" % (args, kwargs))
+    def on_message_received(self, msg):
+        mac, body = msg
+        self.log("target acquired, challenge received: %s" % body)
+        self.state_machine.go_to_state("negotiating_with_opponent", opponent_mac=mac)
+
+    def on_exit(self):
+        espnow.set_recv_cb(None)  # clear the callback because this state is done
+
+
+class NegotiatingWithOpponentState(BaseState):
+    def __init__(self, opponent_mac, *args, **kwargs):
+        super(NegotiatingWithOpponentState, self).__init__(*args, **kwargs)
+        self.opponent_mac = opponent_mac
+        try:
+            espnow.add_peer(wifi, opponent_mac)
+        except OSError as err:
+            if str(err) == "ESP-Now Peer Exists":
+                # this error means the opponent mac is already in the peer list,
+                # which is fine, so we can continue
+                pass
+            else:
+                # some other unexpected OSError
+                raise
+
+    def on_enter(self):
+        espnow.set_recv_cb(self.on_message_received)
+        espnow.send(self.opponent_mac, "let's start playing")
+
+    def on_message_received(self, msg):
+        mac, text = msg
+        self.log("got a message during negotiations: %s" % text)
+
+        if text == b"let's start playing":
+            espnow.set_recv_cb(None)  # we don't need the callback anymore
+            espnow.send(self.opponent_mac, "let's start playing")
+            self.state_machine.go_to_state("playing_simon_says")
+
+
+class SimonSaysState(BaseState):
+    def __init__(self, state_machine):
+        self.state_machine = state_machine
+        self.lights = self.state_machine.lights
+        self.buttons = self.state_machine.buttons
+
+        self.state = None
+        self.current_challenge = []
+        self.current_guess_ct = 0
+
+    def on_button_push(self, button_number):
+        if self.state is None or self.state == "losing":
+            self.state_machine.lights[button_number].on()
+        elif self.state == "guessing":
+            self.lights[button_number].on()
+            self.count_guess(button_number)
+
+    def on_button_release(self, button_number):
+        self.lights[button_number].off()
+
+        if self.state is None:
+            self.start_game()
+        elif self.state == "winning":
+            self.win_round()
+        elif self.state == "losing":
+            self.lights[button_number].on()
+            self.lose()
+
+    def enter(self):
+        self.start_game()
+
+    def start_game(self):
+        self.state = "launching"
+        self.lights.cycle(times=1)
+        time.sleep(1)
+        self.challenge()
+
+    def challenge(self):
+        self.state = "challenging"
+        self.current_challenge = self.build_new_challenge(
+            length=len(self.current_challenge) + 1
+            if self.current_challenge
+            else 3  # first round is 3 flashes
+        )
+        self.display_challenge(self.current_challenge)
+        self.start_guessing()
+
+    def build_new_challenge(self, length):
+        challenge = []
+        while length:
+            length -= 1
+            challenge.append(random(0, len(self.buttons) - 1))
+        return challenge
+
+    def display_challenge(self, challenge):
+        self.state = "displaying"
+        for num in challenge:
+            self.lights[num].blink(duration=0.4)
+            time.sleep(0.2)
+
+    def start_guessing(self):
+        self.state = "guessing"
+        self.current_guess_ct = 0
+
+    def count_guess(self, pushed_button_number):
+        if self.current_challenge[self.current_guess_ct] == pushed_button_number:
+            self.current_guess_ct += 1
+
+            if self.current_guess_ct == len(self.current_challenge):
+                self.state = "winning"
+        else:
+            self.state = "losing"
+
+    def win_round(self):
+        self.lights.confetti(times=15)
+        time.sleep(1)
+        self.challenge()
+
+    def lose(self):
+        for button in self.buttons:
+            button.update(handler=None)
+
+        correct_guess = self.current_challenge[self.current_guess_ct]
+        self.lights[correct_guess].blink(duration=0.2, times=2)
+        self.lights.all_blink(times=max(2, len(self.current_challenge) - 3))
+        time.sleep(0.1)
+        self.state_machine.go_to_state("idle")
 
 
 class StateMachine:
@@ -377,7 +389,8 @@ class StateMachine:
         self.states = {
             "idle": IdleState,
             "searching_for_opponent": SearchingForOpponentState,
-            "playing_simon_says": SimonSays,
+            "negotiating_with_opponent": NegotiatingWithOpponentState,
+            "playing_simon_says": SimonSaysState,
         }
 
         BUTTON_PINS = [27, 33, 15, 32]
@@ -392,9 +405,9 @@ class StateMachine:
         self.current_state = None
         self.go_to_state(initial_state)
 
-    def go_to_state(self, name):
+    def go_to_state(self, name, **kwargs):
         print(
-            "STATE TRANSITION: %s -> %s"
+            "*** STATE TRANSITION: %s -> %s"
             % (
                 self.current_state.__class__.__name__ if self.current_state else None,
                 self.states[name].__name__,
@@ -404,8 +417,8 @@ class StateMachine:
         if self.current_state:
             self.current_state.exit()
 
-        self.current_state = self.states[name](state_machine=self)
+        self.current_state = self.states[name](state_machine=self, **kwargs)
         self.current_state.enter()
 
 
-state_machine = StateMachine()
+state_machine = StateMachine(initial_state="searching_for_opponent")
