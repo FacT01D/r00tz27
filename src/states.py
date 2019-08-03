@@ -77,7 +77,7 @@ class BaseState:
         print("  %s: %s" % (self.__class__.__name__, msg))
 
 
-class IdleState(BaseState):
+class AwakeState(BaseState):
     """A simple state that doesn't really do anything interesting."""
 
     def on_button_release(self, button_number):
@@ -178,7 +178,7 @@ class SimonSaysGuessingState(BaseState):
             self.state_machine.lights[correct_guess].blink(duration=0.2, times=2)
             self.state_machine.lights.all_blink(times=2)
             time.sleep(0.1)
-            self.state_machine.go_to_state("idle")  # TODO - go where?
+            self.state_machine.go_to_state("awake")  # TODO - go where?
 
 
 ### IGNORE THE BELOW. SAVED FOR MY NOTES:

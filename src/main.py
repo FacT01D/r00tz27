@@ -2,7 +2,7 @@ import machine
 
 from .devices import Button, Buzzer, LED, Lights, WiFi
 from .states import (
-    IdleState,
+    AwakeState,
     SearchingForOpponentState,
     NegotiatingWithOpponentState,
     SimonSaysChallengeState,
@@ -23,12 +23,12 @@ class StateMachine:
     and controlled thru, this State Machine.
     """
 
-    def __init__(self, initial_state="idle"):
+    def __init__(self, initial_state="awake"):
 
         ## all possible states of the board
 
         self.states = {
-            "idle": IdleState,
+            "awake": AwakeState,
             "searching_for_opponent": SearchingForOpponentState,
             "negotiating_with_opponent": NegotiatingWithOpponentState,
             "simon_says_challenge": SimonSaysChallengeState,
@@ -85,4 +85,4 @@ class StateMachine:
 def run():
     """The function that gets run on boot"""
 
-    state_machine = StateMachine(initial_state="idle")
+    state_machine = StateMachine(initial_state="awake")
