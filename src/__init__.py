@@ -1,3 +1,3 @@
-from .main import StateMachine
+from .main import run
 
-state_machine = StateMachine(initial_state="searching_for_opponent")
+run()
