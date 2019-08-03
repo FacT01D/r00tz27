@@ -42,7 +42,13 @@ class StateMachine:
         self.go_to_state(initial_state)
 
     def go_to_state(self, name, **kwargs):
-        """Handle a state transition by calling exit() on the old state and enter() on the new"""
+        """
+        Handle a state transition by calling exit() on the old state and enter() on the new.
+        
+        This method is usually called by the current state to forward us to the new state.
+        The current state can pass named arguments to the init method of the new state like so:
+          >>> state_machine.go_to_state("my_new_state", arg1=val1, foo=bar)
+        """
 
         old_state_class_name = (
             self.current_state.__class__.__name__ if self.current_state else None
