@@ -5,7 +5,8 @@ from .states import (
     IdleState,
     SearchingForOpponentState,
     NegotiatingWithOpponentState,
-    SimonSaysState,
+    SimonSaysChallengeState,
+    SimonSaysGuessingState,
 )
 
 
@@ -30,7 +31,8 @@ class StateMachine:
             "idle": IdleState,
             "searching_for_opponent": SearchingForOpponentState,
             "negotiating_with_opponent": NegotiatingWithOpponentState,
-            "playing_simon_says": SimonSaysState,
+            "simon_says_challenge": SimonSaysChallengeState,
+            "simon_says_guessing": SimonSaysGuessingState,
         }
 
         ## initialize hardware devices
@@ -83,4 +85,4 @@ class StateMachine:
 def run():
     """The function that gets run on boot"""
 
-    state_machine = StateMachine(initial_state="searching_for_opponent")
+    state_machine = StateMachine(initial_state="idle")

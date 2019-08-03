@@ -214,7 +214,8 @@ class WiFi:
 
     def on_espnow_message(self, message):
         mac, text = message
-        print("Got ESPNOW message: %s (from %s)" % (text, mac))
+        print("ESPNOW message: %s (from %s)" % (text, mac))
+        print("ESPNOW callbacks: %s" % len(self.msg_callbacks))
 
         for callback in self.msg_callbacks:
             callback(mac, text)
