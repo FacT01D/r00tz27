@@ -1,7 +1,7 @@
-# This file contains abstractions for the devices connected to pins on the board.
+# This file contains abstractions for the hardware on the board.
 
 from machine import Pin, PWM, random
-import time
+import espnow, network, time
 
 
 def random_choice(from_list):
@@ -177,3 +177,62 @@ class Lights:
             time.sleep(0.3)
             for led in self.leds:
                 led.off()
+
+
+class WiFi:
+    """
+    Wraps board-to-board wireless comms (including ESPNOW) into a nicer API.
+    """
+
+    BROADCAST_ADDR = b"\xFF" * 6
+
+    def __init__(self):
+        self.msg_callbacks = []
+
+        self.wlan = network.WLAN(network.AP_IF)
+
+    def on(self):
+        self.wlan.active(True)
+        self.wlan.config(channel=1)
+        self.wlan.config(protocol=network.MODE_LR)
+
+        espnow.init()
+        espnow.set_pmk("0123456789abcdef")
+        espnow.set_recv_cb(self.on_espnow_message)
+        self.add_espnow_peer(WiFi.BROADCAST_ADDR)
+
+    def off(self):
+        espnow.deinit()
+        self.wlan.active(False)
+
+    def send_message(self, mac, text):
+        self.add_espnow_peer(mac)
+        espnow.send(mac, text)
+
+    def broadcast(self, text):
+        espnow.send(WiFi.BROADCAST_ADDR, text)
+
+    def on_espnow_message(self, message):
+        mac, text = message
+        print("Got ESPNOW message: %s (from %s)" % (text, mac))
+
+        for callback in self.msg_callbacks:
+            callback(mac, text)
+
+    def add_espnow_peer(self, addr):
+        try:
+            espnow.add_peer(self.wlan, addr)
+        except OSError as err:
+            if str(err) == "ESP-Now Peer Exists":
+                # this error means the opponent mac is already in the peer list,
+                # which is fine, so we can continue
+                pass
+            else:
+                # some other unexpected OSError
+                raise
+
+    def register_msg_callback(self, callback):
+        self.msg_callbacks.append(callback)
+
+    def clear_callback(self):
+        self.msg_callbacks = []

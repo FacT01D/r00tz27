@@ -1,8 +1,5 @@
 import espnow, machine, network, time
 
-BROADCAST_ADDR = b"\xFF" * 6
-wifi = network.WLAN(network.AP_IF)
-
 
 class BaseState:
     """
@@ -21,7 +18,7 @@ class BaseState:
 
     ## the following methods should be overridden by subclasses as needed
 
-    def on_enter(self):
+    def on_enter(self, **kwargs):
         pass
 
     def on_exit(self):
@@ -35,10 +32,10 @@ class BaseState:
 
     ## the methods below here provide functionality and should be overridden with care
 
-    def enter(self):
+    def enter(self, **kwargs):
         self.log("entering...")
         self.bind_buttons()
-        self.on_enter()
+        self.on_enter(**kwargs)
         self.log("entered")
 
     def exit(self):
@@ -85,28 +82,15 @@ class SearchingForOpponentState(BaseState):
     """Sends out challenges over ESPNOW. When one is found, forward state."""
 
     def on_enter(self):
-        wifi.active(True)
-        wifi.config(channel=1)
-        wifi.config(protocol=network.MODE_LR)
+        self.state_machine.wifi.register_msg_callback(self.on_message_received)
+        self.state_machine.wifi.broadcast("anyone there?")
 
-        espnow.deinit()  # in case espnow was already init'd -- a no-op if not
-        espnow.init()
-        espnow.set_pmk("0123456789abcdef")
-        espnow.set_recv_cb(self.on_message_received)
-
-        espnow.add_peer(wifi, BROADCAST_ADDR)
-
-    def on_button_release(self, button_number):
-        self.log("sending challenge...")
-        espnow.send(BROADCAST_ADDR, "anyone there?")
-
-    def on_message_received(self, msg):
-        mac, body = msg
-        self.log("target acquired, challenge received: %s" % body)
+    def on_message_received(self, mac, msg):
+        self.log("target acquired, challenge received: %s" % msg)
         self.state_machine.go_to_state("negotiating_with_opponent", opponent_mac=mac)
 
     def on_exit(self):
-        espnow.set_recv_cb(None)  # clear the callback because this state is done
+        self.state_machine.wifi.clear_callback()
 
 
 class NegotiatingWithOpponentState(BaseState):
@@ -115,31 +99,20 @@ class NegotiatingWithOpponentState(BaseState):
     to work out specifics. Once acknowledged, forward state to start the game.
     """
 
-    def __init__(self, opponent_mac, *args, **kwargs):
-        super(NegotiatingWithOpponentState, self).__init__(*args, **kwargs)
+    def on_enter(self, opponent_mac):
         self.opponent_mac = opponent_mac
-        try:
-            espnow.add_peer(wifi, opponent_mac)
-        except OSError as err:
-            if str(err) == "ESP-Now Peer Exists":
-                # this error means the opponent mac is already in the peer list,
-                # which is fine, so we can continue
-                pass
-            else:
-                # some other unexpected OSError
-                raise
 
-    def on_enter(self):
-        espnow.set_recv_cb(self.on_message_received)
-        espnow.send(self.opponent_mac, "let's start playing")
+        self.state_machine.wifi.register_msg_callback(self.on_message_received)
+        self.state_machine.wifi.send_message(self.opponent_mac, "let's start playing")
 
-    def on_message_received(self, msg):
-        mac, text = msg
+    def on_message_received(self, mac, text):
         self.log("got a message during negotiations: %s" % text)
 
         if text == b"let's start playing":
-            espnow.set_recv_cb(None)  # we don't need the callback anymore
-            espnow.send(self.opponent_mac, "let's start playing")
+            self.state_machine.wifi.clear_callback()
+            self.state_machine.wifi.send_message(
+                self.opponent_mac, "let's start playing"
+            )
             self.state_machine.go_to_state("playing_simon_says")
 
 

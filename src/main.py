@@ -1,6 +1,6 @@
 import machine
 
-from .devices import Button, Buzzer, LED, Lights
+from .devices import Button, Buzzer, LED, Lights, WiFi
 from .states import (
     IdleState,
     SearchingForOpponentState,
@@ -27,6 +27,9 @@ class StateMachine:
             "playing_simon_says": SimonSaysState,
         }
 
+        self.wifi = WiFi()
+        self.wifi.on()
+
         BUTTON_PINS = [27, 33, 15, 32]
         self.buttons = [
             Button(pin, trigger=machine.Pin.IRQ_ANYEDGE, debounce=1000)
@@ -46,7 +49,7 @@ class StateMachine:
         Handle a state transition by calling exit() on the old state and enter() on the new.
         
         This method is usually called by the current state to forward us to the new state.
-        The current state can pass named arguments to the init method of the new state like so:
+        The current state can pass named arguments to the enter methods of the new state:
           >>> state_machine.go_to_state("my_new_state", arg1=val1, foo=bar)
         """
 
@@ -64,9 +67,9 @@ class StateMachine:
         # it can call go_to_state to the next state.
         # in a future design, instead of creating a new State object, we can reuse the
         # same ones.
-        self.current_state = self.states[name](state_machine=self, **kwargs)
+        self.current_state = self.states[name](state_machine=self)
 
-        self.current_state.enter()  # call enter() on the new state
+        self.current_state.enter(**kwargs)  # call enter() on the new state
 
 
 def run():
