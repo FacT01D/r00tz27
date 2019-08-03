@@ -42,7 +42,7 @@ class StateMachine:
 
         BUTTON_PINS = [27, 33, 15, 32]
         self.buttons = [
-            Button(pin, trigger=machine.Pin.IRQ_ANYEDGE, debounce=1000)
+            Button(pin, trigger=machine.Pin.IRQ_ANYEDGE, debounce=100, acttime=100)
             for pin in BUTTON_PINS
         ]
 
