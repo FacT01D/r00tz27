@@ -117,7 +117,7 @@ class NegotiatingWithOpponentState(BaseState):
 
 
 class SimonSaysChallengeState(BaseState):
-    MAX_ROUNDS = 30
+    MAX_ROUNDS = 5
 
     def on_enter(self, challenge=None, round=1):
         if not challenge:
@@ -128,7 +128,12 @@ class SimonSaysChallengeState(BaseState):
             ]
 
         if round > SimonSaysChallengeState.MAX_ROUNDS:
-            pass  # TODO
+            # game is over after winning the max number of rounds
+            self.state_machine.lights.confetti(times=10)
+            self.state_machine.go_to_state("awake")  # TODO - go where?
+
+        if round == 1:
+            self.state_machine.lights.all_blink(times=2)
 
         # display the challenge
         current_round_challenge = challenge[0 : round + 2]
@@ -169,11 +174,12 @@ class SimonSaysGuessingState(BaseState):
 
     def on_button_release(self, button_number):
         if self.round_over and not self.wrong_guess:
-            # round finished after successful guessing
+            # round finished after successful guessing, but game isn't over yet
             self.state_machine.go_to_state(
                 "simon_says_challenge", challenge=self.challenge, round=self.round + 1
             )
         elif self.round_over and self.wrong_guess:
+            # game finished after wrong guess
             correct_guess = self.challenge[self.current_guess_ct]
             self.state_machine.lights[correct_guess].blink(duration=0.2, times=2)
             self.state_machine.lights.all_blink(times=2)
