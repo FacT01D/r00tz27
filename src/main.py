@@ -419,6 +419,3 @@ class StateMachine:
 
         self.current_state = self.states[name](state_machine=self, **kwargs)
         self.current_state.enter()
-
-
-state_machine = StateMachine(initial_state="searching_for_opponent")
