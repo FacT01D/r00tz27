@@ -1,4 +1,11 @@
-# Required to run this:
+# This script is used to push the source files in src/ to the board under /lib/r00tz27/.
+# If you run it without any arguments, it will print all the connected boards it detects.
+# Run it with a single argument, a port (e.g. COM3 or /dev/ttyWhatever), to:
+# 1) sync src/ with /lib/r00tz27/
+# 2) open up a REPL (so you can hit CTRL+D/CMD+D and soft reboot the board to see any errors)
+# 3) repeat the above if you quit the REPL
+#
+# Make sure you have installed the following python packages w/ pip:
 # pyserial==3.4
 # mpfshell==0.9.1
 

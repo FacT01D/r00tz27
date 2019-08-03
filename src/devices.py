@@ -1,8 +1,11 @@
-from machine import Pin, PWM
+# This file contains abstractions for the devices connected to pins on the board.
+
+from machine import Pin, PWM, random
 import time
 
 
 def random_choice(from_list):
+    """A helper function to randomly pick an item from a list"""
     idx = random(0, len(from_list) - 1)
     return from_list[idx]
 

@@ -1,24 +1,25 @@
-from .devices import Button, Buzzer, LED, Lights
-import espnow, machine, network, random, time
+import espnow, machine, network, time
 
 BROADCAST_ADDR = b"\xFF" * 6
 wifi = network.WLAN(network.AP_IF)
 
 
 class BaseState:
+    """
+    All states inherit from this class. The job of a State class is to:
+    1. provide enter() and exit() commands that do stuff
+    2. bind callbacks for button pushes and any other events that can happen
+
+    So this BaseState class does a few nice things to make it easier to make a State,
+    like automatically logging entry/exit, and binding/unbinding callbacks for buttons.
+    
+    Subclasses should implement functionality by overriding any of the on_[something] methods.
+    """
+
     def __init__(self, state_machine):
         self.state_machine = state_machine
 
-    def enter(self):
-        self.log("entering...")
-        self.bind_buttons()
-        self.on_enter()
-        self.log("entered")
-
-    def exit(self):
-        self.log("exiting...")
-        self.on_exit()
-        self.log("exited")
+    ## the following methods should be overridden by subclasses as needed
 
     def on_enter(self):
         pass
@@ -31,6 +32,19 @@ class BaseState:
 
     def on_button_release(self, button_number):
         pass
+
+    ## the methods below here provide functionality and should be overridden with care
+
+    def enter(self):
+        self.log("entering...")
+        self.bind_buttons()
+        self.on_enter()
+        self.log("entered")
+
+    def exit(self):
+        self.log("exiting...")
+        self.on_exit()
+        self.log("exited")
 
     def unbind_buttons(self):
         self.log("unbinding buttons...")
@@ -57,15 +71,19 @@ class BaseState:
                 return i
 
     def log(self, msg):
-        print("%s: %s" % (self.__class__.__name__, msg))
+        print("  %s: %s" % (self.__class__.__name__, msg))
 
 
 class IdleState(BaseState):
+    """A simple state that doesn't really do anything interesting."""
+
     def on_button_release(self, button_number):
         self.state_machine.go_to_state("searching_for_opponent")
 
 
 class SearchingForOpponentState(BaseState):
+    """Sends out challenges over ESPNOW. When one is found, forward state."""
+
     def on_enter(self):
         wifi.active(True)
         wifi.config(channel=1)
@@ -92,6 +110,11 @@ class SearchingForOpponentState(BaseState):
 
 
 class NegotiatingWithOpponentState(BaseState):
+    """
+    A possible opponent has been identified, so talk to their mac address directly
+    to work out specifics. Once acknowledged, forward state to start the game.
+    """
+
     def __init__(self, opponent_mac, *args, **kwargs):
         super(NegotiatingWithOpponentState, self).__init__(*args, **kwargs)
         self.opponent_mac = opponent_mac
@@ -121,6 +144,8 @@ class NegotiatingWithOpponentState(BaseState):
 
 
 class SimonSaysState(BaseState):
+    """The actual Simon Says game itself."""
+
     def __init__(self, state_machine):
         self.state_machine = state_machine
         self.lights = self.state_machine.lights
@@ -171,7 +196,7 @@ class SimonSaysState(BaseState):
         challenge = []
         while length:
             length -= 1
-            challenge.append(random.randint(0, len(self.buttons) - 1))
+            challenge.append(machine.random(0, len(self.buttons) - 1))
         return challenge
 
     def display_challenge(self, challenge):
@@ -207,41 +232,3 @@ class SimonSaysState(BaseState):
         self.lights.all_blink(times=max(2, len(self.current_challenge) - 3))
         time.sleep(0.1)
         self.state_machine.go_to_state("idle")
-
-
-class StateMachine:
-    def __init__(self, initial_state="idle"):
-        self.states = {
-            "idle": IdleState,
-            "searching_for_opponent": SearchingForOpponentState,
-            "negotiating_with_opponent": NegotiatingWithOpponentState,
-            "playing_simon_says": SimonSaysState,
-        }
-
-        BUTTON_PINS = [27, 33, 15, 32]
-        self.buttons = [
-            Button(pin, trigger=machine.Pin.IRQ_ANYEDGE, debounce=1000)
-            for pin in BUTTON_PINS
-        ]
-
-        self.lights = Lights()
-        self.board_led = LED(13)
-        self.board_led.on()
-
-        self.current_state = None
-        self.go_to_state(initial_state)
-
-    def go_to_state(self, name, **kwargs):
-        print(
-            "*** STATE TRANSITION: %s -> %s"
-            % (
-                self.current_state.__class__.__name__ if self.current_state else None,
-                self.states[name].__name__,
-            )
-        )
-
-        if self.current_state:
-            self.current_state.exit()
-
-        self.current_state = self.states[name](state_machine=self, **kwargs)
-        self.current_state.enter()
