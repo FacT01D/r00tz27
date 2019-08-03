@@ -39,7 +39,7 @@ def rsync_src_directory_with_board(mpfs):
 
     # delete all files in directory before pushing new ones
     for f in mpfs.fe.ls():
-        print("Deleting: lib/r00tz27/%s" % f)
+        print("Deleting: /lib/r00tz27/%s" % f)
         mpfs.fe.rm(f)
 
     files_to_transfer = [
