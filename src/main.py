@@ -17,15 +17,23 @@ class StateMachine:
     Each State class defines an enter() method and an exit() method. When the State Machine
     enters a State, it calls the enter() method on that State. When we change state, it calls
     the exit() method on the old State, and then the enter() method on the new State.
+
+    As the overlord of states and state transitions, all hardware devices are properties of,
+    and controlled thru, this State Machine.
     """
 
     def __init__(self, initial_state="idle"):
+
+        ## all possible states of the board
+
         self.states = {
             "idle": IdleState,
             "searching_for_opponent": SearchingForOpponentState,
             "negotiating_with_opponent": NegotiatingWithOpponentState,
             "playing_simon_says": SimonSaysState,
         }
+
+        ## initialize hardware devices
 
         self.wifi = WiFi()
         self.wifi.on()

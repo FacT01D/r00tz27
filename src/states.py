@@ -8,7 +8,7 @@ class BaseState:
     2. bind callbacks for button pushes and any other events that can happen
 
     So this BaseState class does a few nice things to make it easier to make a State,
-    like automatically logging entry/exit, and binding/unbinding callbacks for buttons.
+    like automatically logging entry/exit, and binding callbacks for buttons.
     
     Subclasses should implement functionality by overriding any of the on_[something] methods.
     """
@@ -30,23 +30,23 @@ class BaseState:
     def on_button_release(self, button_number):
         pass
 
+    def on_wifi_message(self, mac, text):
+        pass
+
     ## the methods below here provide functionality and should be overridden with care
 
     def enter(self, **kwargs):
         self.log("entering...")
         self.bind_buttons()
+        self.register_wifi_message_callback()
         self.on_enter(**kwargs)
         self.log("entered")
 
     def exit(self):
         self.log("exiting...")
         self.on_exit()
+        self.clear_wifi_message_callback()
         self.log("exited")
-
-    def unbind_buttons(self):
-        self.log("unbinding buttons...")
-        for button in self.state_machine.buttons:
-            button.update(handler=None)
 
     def bind_buttons(self):
         self.log("binding buttons...")
@@ -67,6 +67,12 @@ class BaseState:
             if button.pin == pin:
                 return i
 
+    def register_wifi_message_callback(self):
+        self.state_machine.wifi.register_msg_callback(self.on_wifi_message)
+
+    def clear_wifi_message_callback(self):
+        self.state_machine.wifi.clear_callback()
+
     def log(self, msg):
         print("  %s: %s" % (self.__class__.__name__, msg))
 
@@ -81,11 +87,10 @@ class IdleState(BaseState):
 class SearchingForOpponentState(BaseState):
     """Sends out challenges over ESPNOW. When one is found, forward state."""
 
-    def on_enter(self):
-        self.state_machine.wifi.register_msg_callback(self.on_message_received)
+    def on_button_release(self, button_number):
         self.state_machine.wifi.broadcast("anyone there?")
 
-    def on_message_received(self, mac, msg):
+    def on_wifi_message(self, mac, msg):
         self.log("target acquired, challenge received: %s" % msg)
         self.state_machine.go_to_state("negotiating_with_opponent", opponent_mac=mac)
 
@@ -101,14 +106,12 @@ class NegotiatingWithOpponentState(BaseState):
 
     def on_enter(self, opponent_mac):
         self.opponent_mac = opponent_mac
-
-        self.state_machine.wifi.register_msg_callback(self.on_message_received)
         self.state_machine.wifi.send_message(self.opponent_mac, "let's start playing")
 
-    def on_message_received(self, mac, text):
-        self.log("got a message during negotiations: %s" % text)
-
-        if text == b"let's start playing":
+    def on_wifi_message(self, mac, text):
+        if mac == self.opponent_mac and text == b"let's start playing":
+            # here we explicitly clear the callback before sending an ACK so we don't end up
+            # in an infinite loop of messages back and forth
             self.state_machine.wifi.clear_callback()
             self.state_machine.wifi.send_message(
                 self.opponent_mac, "let's start playing"
