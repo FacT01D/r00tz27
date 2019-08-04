@@ -46,7 +46,8 @@ class StateMachine:
             for pin in BUTTON_PINS
         ]
 
-        self.lights = Lights()
+        self.buzzer = Buzzer()
+        self.lights = Lights(sync_with_buzzer=self.buzzer)
 
         self.board_led = LED(13)  # the tiny red LED on the board itself
         self.board_led.on()  # turn it on for debug so we know our code is actually running

@@ -76,7 +76,7 @@ class Buzzer:
         self.pwm = PWM(pin, duty=0)
         self.lights = sync_with
 
-    def beep(self, note, duration):
+    def beep(self, note, duration=150):
         time.sleep(50 / 1000)
         self.pwm.init(freq=Buzzer.NOTES[note], duty=50)
 
@@ -91,7 +91,10 @@ class Buzzer:
 
         self.pwm.duty(0)
 
-    def silence(self):
+    def on(self, note):
+        self.pwm.init(freq=Buzzer.NOTES[note], duty=50)
+
+    def off(self):
         self.pwm.duty(0)
 
     def force(self):
@@ -114,14 +117,23 @@ class LED:
         led.on()
     """
 
-    def __init__(self, pin=13):
+    def __init__(self, pin=13, buzzer=None, note=None):
         self.pin = Pin(pin, Pin.OUT)
+
+        self.buzzer = None
+        if buzzer and note:
+            self.buzzer = buzzer
+            self.note = note
 
     def on(self):
         self.pin.value(1)
+        if self.buzzer:
+            self.buzzer.on(self.note)
 
     def off(self):
         self.pin.value(0)
+        if self.buzzer:
+            self.buzzer.off()
 
     def blink(self, duration=0.1, times=1):
         while times:
@@ -143,11 +155,15 @@ class Lights:
         lights[0].blink()
     """
 
-    def __init__(self, led_pins=None):
-        if not led_pins:
-            led_pins = [26, 25, 4, 21]
+    def __init__(self, sync_with_buzzer=None):
+        led_pins = [26, 25, 4, 21]
+        buzzer_notes = ["a", "b", "d", "g"]
 
-        self.leds = [LED(pin) for pin in led_pins]
+        self.leds = [
+            LED(pin, buzzer=sync_with_buzzer, note=note)
+            for pin, note in zip(led_pins, buzzer_notes)
+        ]
+        self.buzzer = sync_with_buzzer
 
     def __getitem__(self, key):
         return self.leds[key]
