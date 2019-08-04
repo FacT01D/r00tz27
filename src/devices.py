@@ -186,6 +186,10 @@ class Lights:
             for led in self.leds:
                 led.off()
 
+    def all_off(self):
+        for led in self.leds:
+            led.off()
+
 
 class WiFi:
     """

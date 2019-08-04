@@ -179,18 +179,22 @@ class SimonSaysGuessingState(BaseState):
             self.round_over = True
 
     def on_button_release(self, button_number):
-        if self.round_over and not self.wrong_guess:
-            # round finished after successful guessing, but game isn't over yet
-            self.state_machine.go_to_state(
-                "simon_says_challenge", challenge=self.challenge, round=self.round + 1
-            )
-        elif self.round_over and self.wrong_guess:
-            # game finished after wrong guess
-            correct_guess = self.challenge[self.current_guess_ct]
-            self.state_machine.lights[correct_guess].blink(duration=0.2, times=2)
-            self.state_machine.lights.all_blink(times=2)
-            time.sleep(0.1)
-            self.state_machine.go_to_state("awake")  # TODO - go where?
+        if self.round_over:
+            self.unbind_buttons()
+            self.state_machine.lights.all_off()
+            if self.wrong_guess:
+                # game finished after wrong guess
+                correct_guess = self.challenge[self.current_guess_ct]
+                self.state_machine.lights[correct_guess].blink(duration=0.2, times=2)
+                self.state_machine.lights.all_blink(times=2)
+                self.state_machine.go_to_state("awake")  # TODO - go where?
+            else:
+                # round finished after successful guessing, but game isn't over yet
+                self.state_machine.go_to_state(
+                    "simon_says_challenge",
+                    challenge=self.challenge,
+                    round=self.round + 1,
+                )
 
 
 ### IGNORE THE BELOW. SAVED FOR MY NOTES:
