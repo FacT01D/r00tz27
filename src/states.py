@@ -45,13 +45,19 @@ class BaseState:
     def exit(self):
         self.log("exiting...")
         self.on_exit()
+        self.unbind_buttons()
         self.clear_wifi_message_callback()
         self.log("exited")
 
     def bind_buttons(self):
         self.log("binding buttons...")
         for button in self.state_machine.buttons:
-            button.update(handler=self.button_callback)
+            button.callback = self.button_callback
+
+    def unbind_buttons(self):
+        self.log("unbinding buttons...")
+        for button in self.state_machine.buttons:
+            button.callback = None
 
     def button_callback(self, pin):
         button_number = self.button_number_from_pin(pin)

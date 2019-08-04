@@ -5,5 +5,11 @@
 #  and r00tz27/__init__.py gets run on startup.
 
 from .main import run
+import micropython
+
+# "If an error occurs in an ISR, MicroPython is unable to produce an error report unless a special
+# buffer is created for the purpose. Debugging is simplified if the following code is included
+# in any program using interrupts."
+micropython.alloc_emergency_exception_buf(100)
 
 run()

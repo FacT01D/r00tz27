@@ -51,10 +51,25 @@ class StateMachine:
         self.board_led = LED(13)  # the tiny red LED on the board itself
         self.board_led.on()  # turn it on for debug so we know our code is actually running
 
+        self.timer = machine.Timer(1)
+
         self.current_state = None
         self.go_to_state(initial_state)
 
     def go_to_state(self, name, **kwargs):
+        """
+        We handle state transitions asynchronously. Rather than stopping anything running
+        we give it 20ms before this timer callback fires and forwards the state. This will
+        hopefully easily mitigate some nasty race conditions. This also allows us to call
+        state_machine.go_to_state within a State's on_enter method without causing problems.
+        """
+
+        def callback(timer):
+            self._go_to_state(name, **kwargs)
+
+        self.timer.init(period=20, mode=machine.Timer.ONE_SHOT, callback=callback)
+
+    def _go_to_state(self, name, **kwargs):
         """
         Handle a state transition by calling exit() on the old state and enter() on the new.
         

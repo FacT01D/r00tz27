@@ -20,12 +20,20 @@ class Button:
     """
 
     def __init__(self, pin, handler=None, trigger=Pin.IRQ_FALLING, *args, **kwargs):
-        if not handler:
-            handler = print
-
+        self.callback = handler
         self.pin = Pin(
-            pin, Pin.IN, Pin.PULL_UP, handler=handler, trigger=trigger, *args, **kwargs
+            pin,
+            Pin.IN,
+            Pin.PULL_UP,
+            handler=self.handler,
+            trigger=trigger,
+            *args,
+            **kwargs
         )
+
+    def handler(self, *args, **kwargs):
+        if self.callback:
+            self.callback(*args, **kwargs)
 
     def disable(self):
         self.pin.init(handler=None, trigger=Pin.IRQ_DISABLE)
