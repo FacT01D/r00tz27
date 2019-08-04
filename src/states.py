@@ -136,7 +136,7 @@ class SimonSaysChallengeState(BaseState):
         if round > SimonSaysChallengeState.MAX_ROUNDS:
             # game is over after winning the max number of rounds
             self.state_machine.lights.confetti(times=10)
-            self.state_machine.go_to_state("awake")  # TODO - go where?
+            return self.state_machine.go_to_state("awake")  # TODO - go where?
 
         if round == 1:
             self.state_machine.lights.all_blink(times=2)
