@@ -159,14 +159,32 @@ class SimonSaysGuessingState(BaseState):
         self.round = round
         self.current_guess_ct = 0
 
+        # variables set in on_button_push and used in on_button_release to indicate win/loss
         self.round_over = False
         self.wrong_guess = False
+
+        # set the expiry timer for max time between presses
+        self.state_machine.timer.init(
+            period=5000, mode=machine.Timer.ONE_SHOT, callback=self.ran_out_of_time
+        )
+
+    def ran_out_of_time(self, timer):
+        self.unbind_buttons()
+        self.you_lose()
+
+    def you_lose(self):
+        correct_guess = self.challenge[self.current_guess_ct]
+        self.state_machine.lights[correct_guess].blink(duration=0.2, times=2)
+        self.state_machine.lights.all_blink(times=2)
+        self.state_machine.go_to_state("awake")  # TODO - go where?
 
     def on_button_push(self, button_number):
         """
         We record the result on button push, but we don't end the round until button release.
         Gameplay feels better that way.
         """
+        self.state_machine.timer.reshoot()  # reset the expiry timer
+
         if self.challenge[self.current_guess_ct] == button_number:
             # correct guess
             self.current_guess_ct += 1
@@ -181,13 +199,10 @@ class SimonSaysGuessingState(BaseState):
     def on_button_release(self, button_number):
         if self.round_over:
             self.unbind_buttons()
-            self.state_machine.lights.all_off()
+
             if self.wrong_guess:
                 # game finished after wrong guess
-                correct_guess = self.challenge[self.current_guess_ct]
-                self.state_machine.lights[correct_guess].blink(duration=0.2, times=2)
-                self.state_machine.lights.all_blink(times=2)
-                self.state_machine.go_to_state("awake")  # TODO - go where?
+                self.you_lose()
             else:
                 # round finished after successful guessing, but game isn't over yet
                 self.state_machine.go_to_state(

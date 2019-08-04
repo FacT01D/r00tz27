@@ -51,7 +51,8 @@ class StateMachine:
         self.board_led = LED(13)  # the tiny red LED on the board itself
         self.board_led.on()  # turn it on for debug so we know our code is actually running
 
-        self.timer = machine.Timer(1)
+        self.state_change_timer = machine.Timer(1)
+        self.timer = machine.Timer(2)
 
         self.current_state = None
         self.go_to_state(initial_state)
@@ -64,10 +65,16 @@ class StateMachine:
         state_machine.go_to_state within a State's on_enter method without causing problems.
         """
 
+        # some cleanup first
+        self.timer.deinit()
+        self.lights.all_off()
+
         def callback(timer):
             self._go_to_state(name, **kwargs)
 
-        self.timer.init(period=20, mode=machine.Timer.ONE_SHOT, callback=callback)
+        self.state_change_timer.init(
+            period=20, mode=machine.Timer.ONE_SHOT, callback=callback
+        )
 
     def _go_to_state(self, name, **kwargs):
         """
