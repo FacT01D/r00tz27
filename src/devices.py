@@ -216,7 +216,6 @@ class WiFi:
 
     def __init__(self):
         self.msg_callbacks = []
-
         self.wlan = network.WLAN(network.AP_IF)
 
     def on(self):
@@ -233,20 +232,30 @@ class WiFi:
         espnow.deinit()
         self.wlan.active(False)
 
-    def send_message(self, mac, text):
+    def send_message(self, mac, body):
         self.add_espnow_peer(mac)
+        text = "r00tz27 %s" % body
         espnow.send(mac, text)
 
-    def broadcast(self, text):
+    def broadcast(self, body):
+        text = "r00tz27 %s" % body
         espnow.send(WiFi.BROADCAST_ADDR, text)
 
     def on_espnow_message(self, message):
         mac, text = message
-        print("ESPNOW message: %s (from %s)" % (text, mac))
+
+        if not text.startswith(b"r00tz27"):
+            # not a message we can understand
+            return
+
+        _, *body = text.split(b" ")
+        body = b" ".join(body)
+
+        print("ESPNOW message: %s (from %s)" % (body, mac))
         print("ESPNOW callbacks: %s" % len(self.msg_callbacks))
 
         for callback in self.msg_callbacks:
-            callback(mac, text)
+            callback(mac, body)
 
     def add_espnow_peer(self, addr):
         try:
