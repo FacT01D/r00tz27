@@ -3,6 +3,7 @@ import machine
 from .devices import Button, Buzzer, LED, Lights, WiFi
 from .states import (
     AwakeState,
+    DJModeState,
     SearchingForOpponentState,
     NegotiatingWithOpponentState,
     SimonSaysChallengeState,
@@ -29,6 +30,7 @@ class StateMachine:
 
         self.states = {
             "awake": AwakeState,
+            "dj_mode": DJModeState,
             "searching_for_opponent": SearchingForOpponentState,
             "negotiating_with_opponent": NegotiatingWithOpponentState,
             "simon_says_challenge": SimonSaysChallengeState,

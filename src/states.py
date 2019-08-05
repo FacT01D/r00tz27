@@ -84,21 +84,48 @@ class BaseState:
 
 
 class AwakeState(BaseState):
-    """A simple state that doesn't really do anything interesting."""
+    """A simple state to jump into other states."""
+
+    def on_button_push(self, button_number):
+        self.log("button pushed: %s" % button_number)
+        if button_number == 3:
+            return self.state_machine.go_to_state("searching_for_opponent")
 
     def on_button_release(self, button_number):
-        self.state_machine.go_to_state("searching_for_opponent")
+        self.log("button released: %s" % button_number)
+        if button_number == 2:
+            return self.state_machine.go_to_state("simon_says_challenge")
+        elif button_number == 0:
+            return self.state_machine.go_to_state("dj_mode")
+
+
+class DJModeState(BaseState):
+    """A state that just lets you play music. Exit it by hitting the reset button on the back."""
+
+    pass
 
 
 class SearchingForOpponentState(BaseState):
-    """Sends out challenges over ESPNOW. When one is found, forward state."""
+    """
+    Sends out challenges over ESPNOW. When one is found, forward state.
+    Button must be held down to remain in this state.
+    """
 
     def on_enter(self):
+        self.state_machine.timer.init(
+            period=1000, mode=machine.Timer.PERIODIC, callback=self.broadcast
+        )
+
+    def broadcast(self, timer):
         self.state_machine.wifi.broadcast("anyone there?")
 
     def on_wifi_message(self, mac, msg):
         self.log("target acquired, challenge received: %s" % msg)
         self.state_machine.go_to_state("negotiating_with_opponent", opponent_mac=mac)
+
+    def on_button_release(self, button_number):
+        if button_number == 3:
+            return self.state_machine.go_to_state("awake")
 
 
 class NegotiatingWithOpponentState(BaseState):
@@ -139,7 +166,9 @@ class SimonSaysChallengeState(BaseState):
             return self.state_machine.go_to_state("awake")  # TODO - go where?
 
         if round == 1:
-            self.state_machine.lights.all_blink(times=2)
+            self.state_machine.lights.all_blink(times=3)
+
+        time.sleep(0.2)
 
         # display the challenge
         current_round_challenge = challenge[0 : round + 2]
