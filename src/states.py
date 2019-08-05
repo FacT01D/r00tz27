@@ -63,9 +63,11 @@ class BaseState:
         button_number = self.button_number_from_pin(pin)
         if pin.value() == 0:
             self.state_machine.lights[button_number].on()
+            self.log("button push: %s" % button_number)
             self.on_button_push(button_number)
         if pin.value() == 1:
             self.state_machine.lights[button_number].off()
+            self.log("button release: %s" % button_number)
             self.on_button_release(button_number)
 
     def button_number_from_pin(self, pin):
@@ -172,9 +174,12 @@ class SimonSaysChallengeState(BaseState):
 
         # display the challenge
         current_round_challenge = challenge[0 : round + 2]
-        for num in current_round_challenge:
-            self.state_machine.lights[num].blink(duration=0.4)
+        self.log("challenge: %s" % current_round_challenge)
+        for num in current_round_challenge[:-1]:
+            self.state_machine.lights[num].blink(duration=0.3)
             time.sleep(0.2)
+        # handle the last one outside the forloop so we don't end on a sleep
+        self.state_machine.lights[current_round_challenge[-1]].blink(duration=0.3)
 
         # let the user start their guessing
         self.state_machine.go_to_state(
