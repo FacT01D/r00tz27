@@ -51,6 +51,8 @@ def rsync_src_directory_with_board(mpfs):
         print("Pushing: %s -> %s" % (local_file_path, remote_file_path))
         mpfs.fe.put(local_file_path, remote_file_path)
 
+    mpfs.do_exec("""machine.nvs_setstr("system", "default_app", "r00tz27")""")
+
 
 mpfs = MpFileShell(color=True, caching=False, reset=False)
 
