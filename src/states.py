@@ -15,6 +15,7 @@ class BaseState:
 
     def __init__(self, state_machine):
         self.state_machine = state_machine
+        self.last_wifi_message_received = None  # for deduping
 
     ## the following methods should be overridden by subclasses as needed
 
@@ -76,7 +77,14 @@ class BaseState:
                 return i
 
     def wifi_message_callback(self, arg):
+        self.log("Processing wifi message: %s" % str(arg))
+
         mac, body = arg
+        if self.last_wifi_message_received == (mac, body):
+            self.log("Dropping message as dupe")
+            return
+
+        self.last_wifi_message_received = (mac, body)
         self.on_wifi_message(mac, body)
 
     def register_wifi_message_callback(self):
@@ -201,11 +209,11 @@ class SimonSaysRoundSyncState(BaseState):
         if self.did_lose:
             # end the game as a loser
             self.state_machine.lights.all_blink(times=2)
-            return machine.reset()  # TODO - go where?
+            return self.game_over()
         elif self.rnd >= SimonSaysRoundSyncState.MAX_ROUNDS:
             # end the game as a winner
             self.state_machine.lights.confetti(times=10)
-            return machine.reset()  # TODO - go where?
+            return self.game_over()
         else:
             # go to next round after flashing lights
             self.state_machine.lights.all_blink(times=2)
@@ -251,15 +259,20 @@ class SimonSaysRoundSyncState(BaseState):
 
     def you_win(self):
         self.state_machine.lights.confetti(times=10)
-        return machine.reset()  # TODO - go where?
+        return self.game_over()
 
     def you_lose(self):
         self.state_machine.lights.all_blink(times=2)
-        return machine.reset()  # TODO - go where?
+        return self.game_over()
 
     def both_lose(self):
         self.state_machine.lights.all_blink(times=4)
-        return machine.reset()  # TODO - go where?
+        return self.game_over()
+
+    def game_over(self):
+        return self.state_machine.go_to_state(
+            "awake"
+        )  # TODO - what is the correct thing here?
 
 
 class SimonSaysChallengeState(BaseState):
