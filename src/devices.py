@@ -1,7 +1,7 @@
 # This file contains abstractions for the hardware on the board.
 
 from machine import Pin, PWM, random
-import espnow, network, time
+import espnow, math, network, time
 
 
 def random_choice(from_list):
@@ -205,6 +205,15 @@ class Lights:
     def all_off(self):
         for led in self.leds:
             led.off()
+
+    def flash_eyes(self):
+        p0 = PWM(self.leds[0].pin, freq=1000)
+        p1 = PWM(self.leds[2].pin, freq=1000)
+        for i in range(20):
+            d = ((int(math.sin(i / 10 * math.pi) * 500 + 500)) / 1024.0) * 100.0
+            p0.duty(d)
+            p1.duty(d)
+            time.sleep_ms(50)
 
 
 class WiFi:
