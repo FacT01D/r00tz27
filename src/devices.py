@@ -206,6 +206,10 @@ class Lights:
         for led in self.leds:
             led.off()
 
+    def all_on(self):
+        for led in self.leds:
+            led.on()
+
     def flash_eyes(self):
         p0 = PWM(self.leds[0].pin, freq=1000)
         p1 = PWM(self.leds[2].pin, freq=1000)
@@ -214,6 +218,9 @@ class Lights:
             p0.duty(d)
             p1.duty(d)
             time.sleep_ms(50)
+
+        p0.duty(0)
+        p1.duty(0)
 
 
 class WiFi:

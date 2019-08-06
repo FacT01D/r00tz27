@@ -1,4 +1,4 @@
-import espnow, machine, network, time
+import espnow, json, machine, network, random, time
 
 
 class BaseState:
@@ -125,28 +125,28 @@ class SearchingForOpponentState(BaseState):
 
     def on_wifi_message(self, mac, msg):
         if msg == b"anyone there?":  # challenge them!
-            challenge_str = "".join(str(i) for i in generate_simon_says_challenge())
-            self.state_machine.wifi.send_message(mac, "challenge: %s" % challenge_str)
-            return
+            seed = machine.random(0, 999999)
+            self.state_machine.wifi.send_message(mac, "challenge: %s" % seed)
+            return  # wait for a response message
         elif msg.startswith(b"challenge: "):  # accept the challenge by echoing back
-            challenge_str = msg.split(b" ")[1]
+            seed_str = msg.split(b" ")[1]
+            seed = int(seed_str)
+
             self.state_machine.wifi.send_message(
-                mac, "challenge_accepted: %s" % challenge_str.decode("utf-8")
+                mac, "challenge_accepted: %s" % seed_str.decode("utf-8")
             )
-            self.clear_wifi_message_callback()
+            self.clear_wifi_message_callback()  # just to make sure this isnt triggered again
 
             return self.state_machine.go_to_state(
-                "simon_says_challenge",
-                challenge=[int(chr(digit)) for digit in challenge_str],
-                multiplayer=True,
+                "simon_says_round_sync", multiplayer_info=(mac, seed)
             )
         elif msg.startswith(b"challenge_accepted: "):  # they accepted our challenge
-            self.clear_wifi_message_callback()
-            challenge_str = msg.split(b" ")[1]
+            self.clear_wifi_message_callback()  # just to make sure this isnt triggered again
+
+            seed = int(msg.split(b" ")[1])
+
             return self.state_machine.go_to_state(
-                "simon_says_challenge",
-                challenge=[int(chr(digit)) for digit in challenge_str],
-                multiplayer=True,
+                "simon_says_round_sync", multiplayer_info=(mac, seed)
             )
 
     def on_button_release(self, button_number):
@@ -157,59 +157,103 @@ class SearchingForOpponentState(BaseState):
 class SimonSaysRoundSyncState(BaseState):
     MAX_ROUNDS = 4
 
-    def on_enter(self, opponent_mac=None, rnd=0, did_lose=False):
+    def on_enter(self, rnd=0, did_lose=False, multiplayer_info=None):
         self.unbind_buttons()  # buttons do nothing in this state
 
         self.rnd = rnd
-        self.opponent_mac = opponent_mac
-        if self.opponent_mac:
-            # multiplayer
+        self.did_lose = did_lose
+        self.multiplayer_info = multiplayer_info
 
-            # spam my round results while waiting for the opponent's to come in
-            self.state_machine.timer.init(
-                period=machine.random(250, 750),
-                mode=machine.Timer.PERIODIC,
-                callback=self.send_game_state,
-            )
+        if self.multiplayer_info:
+            mac, seed = self.multiplayer_info
+
+            if rnd == 0:
+                # first round, seed the random number generator
+                random.seed(seed)
+
+            # send state to opponent -- if they aren't listening yet,
+            # we'll send it again when they send us their state
+            self.send_game_state()
+
+            # TODO -- expire this state if we lose contact with the opponent somehow
         else:
             # single player
 
-            if did_lose:
-                # end the game as a loser
-                self.state_machine.lights.all_blink(times=2)
-                return self.state_machine.go_to_state("awake")  # TODO - go where?
-            elif rnd >= SimonSaysRoundSyncState.MAX_ROUNDS:
-                # end the game as a winner
-                self.state_machine.lights.confetti(times=10)
-                return self.state_machine.go_to_state("awake")  # TODO - go where?
-            else:
-                # go to next round
-                return self.next_round(rnd)
+            if rnd == 0:
+                # first round, seed the random number generator with an actual random number
+                random.seed(machine.random(0, 99999))
 
-    def next_round(self, rnd):
-        # flash lights before next round
-        self.state_machine.lights.all_blink(times=2)
-        time.sleep(0.2)
-
-        return self.state_machine.go_to_state(
-            "simon_says_challenge",
-            challenge=self.create_new_challenge(length=rnd + 3),
-            rnd=rnd + 1,
-        )
-
-    def send_game_state(self):
-        pass
-
-    def on_wifi_message(self, mac, msg):
-        if not msg.startswith(b"game_state: ") or self.opponent_mac != mac:
-            return
+            self.handle_round()
 
     def create_new_challenge(self, length):
-        return [machine.random(0, 3) for _ in range(0, length)]
+        return [random.randint(0, 3) for _ in range(0, length)]
+
+    def handle_round(self):
+        if self.did_lose:
+            # end the game as a loser
+            self.state_machine.lights.all_blink(times=2)
+            return self.state_machine.go_to_state("awake")  # TODO - go where?
+        elif self.rnd >= SimonSaysRoundSyncState.MAX_ROUNDS:
+            # end the game as a winner
+            self.state_machine.lights.confetti(times=10)
+            return self.state_machine.go_to_state("awake")  # TODO - go where?
+        else:
+            # go to next round after flashing lights
+            self.state_machine.lights.all_blink(times=2)
+            time.sleep(0.2)
+
+            return self.state_machine.go_to_state(
+                "simon_says_challenge",
+                challenge=self.create_new_challenge(length=self.rnd + 3),
+                rnd=self.rnd + 1,  # next round
+                multiplayer_info=self.multiplayer_info,
+            )
+
+    def send_game_state(self, *args):
+        mac, seed = self.multiplayer_info
+        game_state = {"round_finished": self.rnd, "did_lose": self.did_lose}
+
+        self.state_machine.wifi.send_message(
+            mac, "game_state: %s" % json.dumps(game_state)
+        )
+
+    def on_wifi_message(self, mac, msg):
+        if not msg.startswith(b"game_state: ") or mac != self.multiplayer_info[0]:
+            return  # not a message for us
+
+        self.clear_wifi_message_callback()  # don't handle any more messages
+        self.send_game_state()  # so the two boards react in sync
+
+        json_blob = msg[len(b"game_state: ") :]  # truncate msg up to the json
+        opponent = json.loads(json_blob)
+
+        if opponent["round_finished"] != self.rnd:
+            raise Exception("??? wtf ???")  # TODO - what do you do?
+
+        if not self.did_lose and opponent["did_lose"]:  # you won
+            self.you_win()
+        if self.did_lose and not opponent["did_lose"]:  # you lost
+            self.you_lose()
+        elif self.did_lose and opponent["did_lose"]:  # both lost
+            self.both_lose()
+        else:  # both win
+            self.handle_round()  # go to the next round
+
+    def you_win(self):
+        self.state_machine.lights.confetti(times=10)
+        return self.state_machine.go_to_state("awake")  # TODO - go where?
+
+    def you_lose(self):
+        self.state_machine.lights.all_blink(times=2)
+        return self.state_machine.go_to_state("awake")  # TODO - go where?
+
+    def both_lose(self):
+        self.state_machine.lights.all_blink(times=4)
+        return self.state_machine.go_to_state("awake")  # TODO - go where?
 
 
 class SimonSaysChallengeState(BaseState):
-    def on_enter(self, challenge, rnd):
+    def on_enter(self, challenge, rnd, multiplayer_info):
         self.unbind_buttons()  # buttons do nothing in this state
 
         # display the challenge
@@ -221,14 +265,18 @@ class SimonSaysChallengeState(BaseState):
 
         # let the user start their guessing
         self.state_machine.go_to_state(
-            "simon_says_guessing", challenge=challenge, rnd=rnd
+            "simon_says_guessing",
+            challenge=challenge,
+            rnd=rnd,
+            multiplayer_info=multiplayer_info,
         )
 
 
 class SimonSaysGuessingState(BaseState):
-    def on_enter(self, challenge, rnd):
+    def on_enter(self, challenge, rnd, multiplayer_info):
         self.challenge = challenge
         self.rnd = rnd
+        self.multiplayer_info = multiplayer_info
         self.current_guess_ct = 0
 
         # variables set in on_button_push and used in on_button_release to indicate win/loss
@@ -252,7 +300,10 @@ class SimonSaysGuessingState(BaseState):
             self.state_machine.lights[correct_guess].blink(duration=0.2, times=2)
 
         self.state_machine.go_to_state(
-            "simon_says_round_sync", rnd=self.rnd, did_lose=did_lose
+            "simon_says_round_sync",
+            rnd=self.rnd,
+            did_lose=did_lose,
+            multiplayer_info=self.multiplayer_info,
         )
 
     def on_button_push(self, button_number):

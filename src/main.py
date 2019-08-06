@@ -65,7 +65,8 @@ class StateMachine:
         We handle state transitions asynchronously. Rather than stopping anything running
         we give it 20ms before this timer callback fires and forwards the state. This will
         hopefully easily mitigate some nasty race conditions. This also allows us to call
-        state_machine.go_to_state within a State's on_enter method without causing problems.
+        state_machine.go_to_state within a State's on_enter method without causing problems
+        (as long as on_enter finishes in 20ms!)
         """
 
         # some cleanup first
