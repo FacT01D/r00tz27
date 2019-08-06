@@ -85,12 +85,6 @@ class BaseState:
         print("  %s: %s" % (self.__class__.__name__, msg))
 
 
-# this has to be up top so multiple states can use it
-def generate_simon_says_challenge():
-    MAX_ROUNDS = 5
-    return [machine.random(0, 3) for _ in range(0, MAX_ROUNDS + 3)]
-
-
 class AwakeState(BaseState):
     """A simple state to jump into other states."""
 
@@ -102,9 +96,7 @@ class AwakeState(BaseState):
     def on_button_release(self, button_number):
         self.log("button released: %s" % button_number)
         if button_number == 2:
-            return self.state_machine.go_to_state(
-                "simon_says_challenge", challenge=generate_simon_says_challenge()
-            )
+            return self.state_machine.go_to_state("simon_says_round_sync")
         elif button_number == 0:
             return self.state_machine.go_to_state("dj_mode")
 
@@ -163,68 +155,105 @@ class SearchingForOpponentState(BaseState):
 
 
 class SimonSaysRoundSyncState(BaseState):
-    def on_enter(self, multiplayer):
-        pass  # todo
+    MAX_ROUNDS = 4
+
+    def on_enter(self, opponent_mac=None, rnd=0, did_lose=False):
+        self.unbind_buttons()  # buttons do nothing in this state
+
+        self.rnd = rnd
+        self.opponent_mac = opponent_mac
+        if self.opponent_mac:
+            # multiplayer
+
+            # spam my round results while waiting for the opponent's to come in
+            self.state_machine.timer.init(
+                period=machine.random(250, 750),
+                mode=machine.Timer.PERIODIC,
+                callback=self.send_game_state,
+            )
+        else:
+            # single player
+
+            if did_lose:
+                # end the game as a loser
+                self.state_machine.lights.all_blink(times=2)
+                return self.state_machine.go_to_state("awake")  # TODO - go where?
+            elif rnd >= SimonSaysRoundSyncState.MAX_ROUNDS:
+                # end the game as a winner
+                self.state_machine.lights.confetti(times=10)
+                return self.state_machine.go_to_state("awake")  # TODO - go where?
+            else:
+                # go to next round
+                return self.next_round(rnd)
+
+    def next_round(self, rnd):
+        # flash lights before next round
+        self.state_machine.lights.all_blink(times=2)
+        time.sleep(0.2)
+
+        return self.state_machine.go_to_state(
+            "simon_says_challenge",
+            challenge=self.create_new_challenge(length=rnd + 3),
+            rnd=rnd + 1,
+        )
+
+    def send_game_state(self):
+        pass
+
+    def on_wifi_message(self, mac, msg):
+        if not msg.startswith(b"game_state: ") or self.opponent_mac != mac:
+            return
+
+    def create_new_challenge(self, length):
+        return [machine.random(0, 3) for _ in range(0, length)]
 
 
 class SimonSaysChallengeState(BaseState):
-    def on_enter(self, challenge, round=1, multiplayer=False):
-        if not challenge:
-            challenge = generate_simon_says_challenge()
-
-        if round > 5:  # MAX_ROUNDS
-            # game is over after winning the max number of rounds
-            self.state_machine.lights.confetti(times=10)
-            return self.state_machine.go_to_state("awake")  # TODO - go where?
-
-        if round == 1:
-            self.state_machine.lights.all_blink(times=3)
-
-        time.sleep(0.2)
+    def on_enter(self, challenge, rnd):
+        self.unbind_buttons()  # buttons do nothing in this state
 
         # display the challenge
-        current_round_challenge = challenge[0 : round + 2]
-        self.log("challenge: %s" % current_round_challenge)
-        for num in current_round_challenge[:-1]:
+        for num in challenge[:-1]:
             self.state_machine.lights[num].blink(duration=0.3)
             time.sleep(0.2)
         # handle the last one outside the forloop so we don't end on a sleep
-        self.state_machine.lights[current_round_challenge[-1]].blink(duration=0.3)
+        self.state_machine.lights[challenge[-1]].blink(duration=0.3)
 
         # let the user start their guessing
         self.state_machine.go_to_state(
-            "simon_says_guessing",
-            challenge=challenge,
-            round=round,
-            multiplayer=multiplayer,
+            "simon_says_guessing", challenge=challenge, rnd=rnd
         )
 
 
 class SimonSaysGuessingState(BaseState):
-    def on_enter(self, challenge, round, multiplayer):
+    def on_enter(self, challenge, rnd):
         self.challenge = challenge
-        self.round = round
-        self.multiplayer = multiplayer
+        self.rnd = rnd
         self.current_guess_ct = 0
 
         # variables set in on_button_push and used in on_button_release to indicate win/loss
         self.round_over = False
         self.wrong_guess = False
 
-        # set the expiry timer for max time between presses
+        # set the expiry timeout for max time between presses
         self.state_machine.timer.init(
-            period=5000, mode=machine.Timer.ONE_SHOT, callback=self.ran_out_of_time
+            period=5000, mode=machine.Timer.ONE_SHOT, callback=self.end_round
         )
 
-    def ran_out_of_time(self, timer):
-        self.unbind_buttons()
-        self.you_lose()
+    def end_round(self, *args):
+        self.unbind_buttons()  # disable buttons from doing anything
 
-    def you_lose(self):
-        correct_guess = self.challenge[self.current_guess_ct]
-        self.state_machine.lights[correct_guess].blink(duration=0.2, times=2)
-        self.state_machine.lights.all_blink(times=2)
-        self.state_machine.go_to_state("awake")  # TODO - go where?
+        is_timeout = len(args) != 0  # if we arrived here from the timer callback
+
+        did_lose = self.wrong_guess or is_timeout
+        if did_lose:
+            # show correct guess
+            correct_guess = self.challenge[self.current_guess_ct]
+            self.state_machine.lights[correct_guess].blink(duration=0.2, times=2)
+
+        self.state_machine.go_to_state(
+            "simon_says_round_sync", rnd=self.rnd, did_lose=did_lose
+        )
 
     def on_button_push(self, button_number):
         """
@@ -233,11 +262,15 @@ class SimonSaysGuessingState(BaseState):
         """
         self.state_machine.timer.reshoot()  # reset the expiry timer
 
+        if self.round_over or self.wrong_guess:
+            # the round is over but they haven't let go of the last button yet, so do nothing
+            return
+
         if self.challenge[self.current_guess_ct] == button_number:
             # correct guess
             self.current_guess_ct += 1
 
-            if self.current_guess_ct == self.round + 2:
+            if self.current_guess_ct == len(self.challenge):
                 self.round_over = True
         else:
             # wrong guess
@@ -246,15 +279,4 @@ class SimonSaysGuessingState(BaseState):
 
     def on_button_release(self, button_number):
         if self.round_over:
-            self.unbind_buttons()
-
-            if self.wrong_guess:
-                # game finished after wrong guess
-                self.you_lose()
-            else:
-                # round finished after successful guessing, but game isn't over yet
-                self.state_machine.go_to_state(
-                    "simon_says_challenge",
-                    challenge=self.challenge,
-                    round=self.round + 1,
-                )
+            self.end_round()
