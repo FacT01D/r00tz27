@@ -88,6 +88,9 @@ class BaseState:
 class AwakeState(BaseState):
     """A simple state to jump into other states."""
 
+    def on_enter(self):
+        machine.reset()
+
     def on_button_push(self, button_number):
         self.log("button pushed: %s" % button_number)
         if button_number == 3:
@@ -102,6 +105,11 @@ class AwakeState(BaseState):
         elif button_number == 1:
             time.sleep(0.5)
             return self.state_machine.buzzer.random_song()
+
+
+class FirstBootState(AwakeState):
+    def on_enter(self):
+        pass  # dont reboot on first boot
 
 
 class DJModeState(BaseState):
