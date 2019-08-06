@@ -32,6 +32,7 @@ class BaseState:
         pass
 
     def on_wifi_message(self, mac, text):
+        """If you need this method, make sure to set USE_WIFI = True on the child"""
         pass
 
     ## the methods below here provide functionality and should be overridden with care
@@ -97,10 +98,14 @@ class BaseState:
         self.on_wifi_message(mac, body)
 
     def register_wifi_message_callback(self):
-        self.state_machine.wifi.register_msg_callback(self.wifi_message_callback)
+        if hasattr(self, "USE_WIFI"):
+            self.log("binding wifi...")
+            self.state_machine.wifi.register_msg_callback(self.wifi_message_callback)
 
     def clear_wifi_message_callback(self):
-        self.state_machine.wifi.clear_callback()
+        if hasattr(self, "USE_WIFI"):
+            self.log("unbinding wifi...")
+            self.state_machine.wifi.clear_callback()
 
     def log(self, msg):
         print("  %s: %s" % (self.__class__.__name__, msg))
@@ -136,6 +141,8 @@ class SearchingForOpponentState(BaseState):
     Sends out challenges over ESPNOW. When one is found, forward state.
     Button must be held down to remain in this state.
     """
+
+    USE_WIFI = True
 
     def on_enter(self):
         self.state_machine.timer.init(
@@ -180,6 +187,7 @@ class SearchingForOpponentState(BaseState):
 
 class SimonSaysRoundSyncState(BaseState):
     MAX_ROUNDS = 4
+    USE_WIFI = True
 
     def on_enter(self, rnd=0, did_lose=False, multiplayer_info=None):
         self.unbind_buttons()  # buttons do nothing in this state
