@@ -245,12 +245,14 @@ class SimonSaysRoundSyncState(BaseState):
             )
 
     def send_game_state(self):
+        self.log("sending game state...")
         mac, seed = self.multiplayer_info
         game_state = {"round_finished": self.rnd, "did_lose": self.did_lose}
 
         self.state_machine.wifi.send_message(
             mac, "game_state: %s" % json.dumps(game_state)
         )
+        self.log("sent game state...")
 
     def on_wifi_message(self, mac, msg):
         if not msg.startswith(b"game_state: ") or mac != self.multiplayer_info[0]:
@@ -264,7 +266,8 @@ class SimonSaysRoundSyncState(BaseState):
         opponent = json.loads(json_blob)
 
         if opponent["round_finished"] != self.rnd:
-            raise Exception("??? wtf ???")  # TODO - what do you do?
+            self.log("Round out of sync with opponent!!")
+            return  # not sure how we would ever get here
 
         if not self.did_lose and opponent["did_lose"]:  # you won
             return self.you_win()
