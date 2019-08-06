@@ -1,7 +1,7 @@
 # This file contains abstractions for the hardware on the board.
 
 from machine import Pin, PWM, random
-import espnow, math, network, time
+import espnow, math, micropython, network, time
 
 from .rtttl import RTTTL
 from .songs import random_song
@@ -75,24 +75,8 @@ class Buzzer:
         aH=880,
     )
 
-    def __init__(self, pin=12, sync_with=None):
+    def __init__(self, pin=12):
         self.pwm = PWM(pin, duty=0)
-        self.lights = sync_with
-
-    def beep(self, note, duration=150):
-        time.sleep(50 / 1000)
-        self.pwm.init(freq=Buzzer.NOTES[note], duty=50)
-
-        synced_light = None
-        if self.lights:
-            synced_light = random_choice(self.lights)
-            synced_light.on()
-
-        time.sleep(duration / 1000)
-
-        synced_light.off() if synced_light else None
-
-        self.pwm.duty(0)
 
     def tone(self, freq, duration):
         freq = round(freq)
@@ -116,17 +100,6 @@ class Buzzer:
 
     def off(self):
         self.pwm.duty(0)
-
-    def force(self):
-        self.beep("a", 500)
-        self.beep("a", 500)
-        self.beep("a", 500)
-        self.beep("f", 350)
-        self.beep("cH", 150)
-        self.beep("a", 500)
-        self.beep("f", 350)
-        self.beep("cH", 150)
-        self.beep("a", 650)
 
 
 class LED:
@@ -251,7 +224,7 @@ class WiFi:
     BROADCAST_ADDR = b"\xFF" * 6
 
     def __init__(self):
-        self.msg_callbacks = []
+        self.msg_callback = None
         self.wlan = network.WLAN(network.AP_IF)
         self.peer_list = []
 
@@ -282,19 +255,17 @@ class WiFi:
         espnow.send(WiFi.BROADCAST_ADDR, text)
 
     def on_espnow_message(self, message):
+        print("<-msg recv " + str(message))
+
         mac, text = message
 
-        if not text.startswith(b"r00tz27"):
+        if not text.startswith(b"r00tz27 "):
             # not a message we can understand
             return
 
-        _, *body = text.split(b" ")
-        body = b" ".join(body)
+        body = text[len(b"r00tz27 ") :]
 
-        print("<-msg recv %s (from %s)" % (body, mac))
-
-        for callback in self.msg_callbacks:
-            callback(mac, body)
+        micropython.schedule(self.msg_callback, (mac, body))
 
     def add_espnow_peer(self, addr):
         if addr in self.peer_list:
@@ -314,7 +285,7 @@ class WiFi:
                 raise
 
     def register_msg_callback(self, callback):
-        self.msg_callbacks.append(callback)
+        self.msg_callback = callback
 
     def clear_callback(self):
-        self.msg_callbacks = []
+        self.msg_callback = None

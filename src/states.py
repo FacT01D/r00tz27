@@ -75,8 +75,12 @@ class BaseState:
             if button.pin == pin:
                 return i
 
+    def wifi_message_callback(self, arg):
+        mac, body = arg
+        self.on_wifi_message(mac, body)
+
     def register_wifi_message_callback(self):
-        self.state_machine.wifi.register_msg_callback(self.on_wifi_message)
+        self.state_machine.wifi.register_msg_callback(self.wifi_message_callback)
 
     def clear_wifi_message_callback(self):
         self.state_machine.wifi.clear_callback()
