@@ -145,13 +145,14 @@ class SearchingForOpponentState(BaseState):
     USE_WIFI = True
 
     def on_enter(self):
+        self.broadcast()
         self.state_machine.timer.init(
-            period=machine.random(750, 1500),
+            period=machine.random(300, 600),
             mode=machine.Timer.PERIODIC,
             callback=self.broadcast,
         )
 
-    def broadcast(self, timer):
+    def broadcast(self, timer=None):
         self.state_machine.wifi.broadcast("anyone there?")
 
     def on_wifi_message(self, mac, msg):
