@@ -54,8 +54,20 @@ class StateMachine:
         self.board_led = LED(13)  # the tiny red LED on the board itself
         self.board_led.on()  # turn it on for debug so we know our code is actually running
 
-        self.state_change_timer = machine.Timer(1)
-        self.timer = machine.Timer(2)
+        try:
+            self.state_change_timer = machine.Timer(1)
+            self.timer = machine.Timer(2)
+        except ValueError as err:
+            # usually happens when being imported in REPL
+            if str(err) == "Timer already in use.":
+                # we need to setup timer #0 in extended mode to have more timers
+                self.tex = machine.Timer(0)
+                self.tex.init(mode=machine.Timer.EXTBASE)
+
+                self.state_change_timer = machine.Timer(3)
+                self.timer = machine.Timer(4)
+            else:
+                raise
 
         self.current_state = None
         self.go_to_state(initial_state)
@@ -106,9 +118,3 @@ class StateMachine:
         self.current_state = self.states[name](state_machine=self)
 
         self.current_state.enter(**kwargs)  # call enter() on the new state
-
-
-def run():
-    """The function that gets run on boot"""
-
-    state_machine = StateMachine(initial_state="awake")

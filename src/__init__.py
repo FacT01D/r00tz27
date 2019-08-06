@@ -4,7 +4,7 @@
 #  then, the src/ folder here goes into /lib/r00tz27 on the board,
 #  and r00tz27/__init__.py gets run on startup.
 
-from .main import run
+from .main import StateMachine
 import micropython
 
 # "If an error occurs in an ISR, MicroPython is unable to produce an error report unless a special
@@ -12,4 +12,5 @@ import micropython
 # in any program using interrupts."
 micropython.alloc_emergency_exception_buf(100)
 
-run()
+if __name__ == "r00tz27":
+    state_machine = StateMachine(initial_state="awake")
