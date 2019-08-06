@@ -3,6 +3,9 @@
 from machine import Pin, PWM, random
 import espnow, math, network, time
 
+from .rtttl import RTTTL
+from .songs import random_song
+
 
 def random_choice(from_list):
     """A helper function to randomly pick an item from a list"""
@@ -90,6 +93,23 @@ class Buzzer:
         synced_light.off() if synced_light else None
 
         self.pwm.duty(0)
+
+    def tone(self, freq, duration):
+        freq = round(freq)
+        duration = round(duration * 0.9)
+        pause = round(duration * 0.1)
+
+        if freq > 0:
+            self.pwm.init(freq=freq, duty=50)
+
+        time.sleep_ms(duration)
+        self.pwm.duty(0)
+        time.sleep_ms(pause)
+
+    def random_song(self):
+        tune = RTTTL(random_song())
+        for freq, duration in tune.notes():
+            self.tone(freq, duration)
 
     def on(self, note):
         self.pwm.init(freq=Buzzer.NOTES[note], duty=50)

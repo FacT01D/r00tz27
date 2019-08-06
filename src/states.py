@@ -99,6 +99,9 @@ class AwakeState(BaseState):
             return self.state_machine.go_to_state("simon_says_round_sync")
         elif button_number == 0:
             return self.state_machine.go_to_state("dj_mode")
+        elif button_number == 1:
+            time.sleep(0.5)
+            return self.state_machine.buzzer.random_song()
 
 
 class DJModeState(BaseState):
