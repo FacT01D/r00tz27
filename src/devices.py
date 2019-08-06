@@ -257,10 +257,15 @@ class WiFi:
     def on_espnow_message(self, message):
         print("<-msg recv " + str(message))
 
+        if not self.msg_callback:
+            print("<-no callbacks")
+            return
+
         mac, text = message
 
         if not text.startswith(b"r00tz27 "):
             # not a message we can understand
+            print("<- trash")
             return
 
         body = text[len(b"r00tz27 ") :]
