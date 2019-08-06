@@ -296,6 +296,9 @@ class SimonSaysChallengeState(BaseState):
     def on_enter(self, challenge, rnd, multiplayer_info):
         self.unbind_buttons()  # buttons do nothing in this state
 
+        # quick pause before displaying the challenge
+        time.sleep(0.5)
+
         # display the challenge
         for num in challenge[:-1]:
             self.state_machine.lights[num].blink(duration=0.3)
