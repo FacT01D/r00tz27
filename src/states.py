@@ -85,6 +85,12 @@ class BaseState:
         print("  %s: %s" % (self.__class__.__name__, msg))
 
 
+# this has to be up top so multiple states can use it
+def generate_simon_says_challenge():
+    MAX_ROUNDS = 5
+    return [machine.random(0, 3) for _ in range(0, MAX_ROUNDS + 3)]
+
+
 class AwakeState(BaseState):
     """A simple state to jump into other states."""
 
@@ -96,7 +102,9 @@ class AwakeState(BaseState):
     def on_button_release(self, button_number):
         self.log("button released: %s" % button_number)
         if button_number == 2:
-            return self.state_machine.go_to_state("simon_says_challenge")
+            return self.state_machine.go_to_state(
+                "simon_says_challenge", challenge=generate_simon_says_challenge()
+            )
         elif button_number == 0:
             return self.state_machine.go_to_state("dj_mode")
 
@@ -115,54 +123,56 @@ class SearchingForOpponentState(BaseState):
 
     def on_enter(self):
         self.state_machine.timer.init(
-            period=1000, mode=machine.Timer.PERIODIC, callback=self.broadcast
+            period=machine.random(750, 1500),
+            mode=machine.Timer.PERIODIC,
+            callback=self.broadcast,
         )
 
     def broadcast(self, timer):
         self.state_machine.wifi.broadcast("anyone there?")
 
     def on_wifi_message(self, mac, msg):
-        self.log("target acquired, challenge received: %s" % msg)
-        self.state_machine.go_to_state("negotiating_with_opponent", opponent_mac=mac)
+        if msg == b"anyone there?":  # challenge them!
+            challenge_str = "".join(str(i) for i in generate_simon_says_challenge())
+            self.state_machine.wifi.send_message(mac, "challenge: %s" % challenge_str)
+            return
+        elif msg.startswith(b"challenge: "):  # accept the challenge by echoing back
+            challenge_str = msg.split(b" ")[1]
+            self.state_machine.wifi.send_message(
+                mac, "challenge_accepted: %s" % challenge_str.decode("utf-8")
+            )
+            self.clear_wifi_message_callback()
+
+            return self.state_machine.go_to_state(
+                "simon_says_challenge",
+                challenge=[int(chr(digit)) for digit in challenge_str],
+                multiplayer=True,
+            )
+        elif msg.startswith(b"challenge_accepted: "):  # they accepted our challenge
+            self.clear_wifi_message_callback()
+            challenge_str = msg.split(b" ")[1]
+            return self.state_machine.go_to_state(
+                "simon_says_challenge",
+                challenge=[int(chr(digit)) for digit in challenge_str],
+                multiplayer=True,
+            )
 
     def on_button_release(self, button_number):
         if button_number == 3:
             return self.state_machine.go_to_state("awake")
 
 
-class NegotiatingWithOpponentState(BaseState):
-    """
-    A possible opponent has been identified, so talk to their mac address directly
-    to work out specifics. Once acknowledged, forward state to start the game.
-    """
-
-    def on_enter(self, opponent_mac):
-        self.opponent_mac = opponent_mac
-        self.state_machine.wifi.send_message(self.opponent_mac, "let's start playing")
-
-    def on_wifi_message(self, mac, text):
-        if mac == self.opponent_mac and text == b"let's start playing":
-            # here we explicitly clear the callback before sending an ACK so we don't end up
-            # in an infinite loop of messages back and forth
-            self.state_machine.wifi.clear_callback()
-            self.state_machine.wifi.send_message(
-                self.opponent_mac, "let's start playing"
-            )
-            self.state_machine.go_to_state("simon_says_challenge")
+class SimonSaysRoundSyncState(BaseState):
+    def on_enter(self, multiplayer):
+        pass  # todo
 
 
 class SimonSaysChallengeState(BaseState):
-    MAX_ROUNDS = 5
-
-    def on_enter(self, challenge=None, round=1):
+    def on_enter(self, challenge, round=1, multiplayer=False):
         if not challenge:
-            # generate a new challenge
-            challenge = [
-                machine.random(0, len(self.state_machine.buttons) - 1)
-                for _ in range(0, SimonSaysChallengeState.MAX_ROUNDS + 3)
-            ]
+            challenge = generate_simon_says_challenge()
 
-        if round > SimonSaysChallengeState.MAX_ROUNDS:
+        if round > 5:  # MAX_ROUNDS
             # game is over after winning the max number of rounds
             self.state_machine.lights.confetti(times=10)
             return self.state_machine.go_to_state("awake")  # TODO - go where?
@@ -183,14 +193,18 @@ class SimonSaysChallengeState(BaseState):
 
         # let the user start their guessing
         self.state_machine.go_to_state(
-            "simon_says_guessing", challenge=challenge, round=round
+            "simon_says_guessing",
+            challenge=challenge,
+            round=round,
+            multiplayer=multiplayer,
         )
 
 
 class SimonSaysGuessingState(BaseState):
-    def on_enter(self, challenge, round):
+    def on_enter(self, challenge, round, multiplayer):
         self.challenge = challenge
         self.round = round
+        self.multiplayer = multiplayer
         self.current_guess_ct = 0
 
         # variables set in on_button_push and used in on_button_release to indicate win/loss

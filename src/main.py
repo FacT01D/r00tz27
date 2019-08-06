@@ -5,7 +5,7 @@ from .states import (
     AwakeState,
     DJModeState,
     SearchingForOpponentState,
-    NegotiatingWithOpponentState,
+    SimonSaysRoundSyncState,
     SimonSaysChallengeState,
     SimonSaysGuessingState,
 )
@@ -32,7 +32,7 @@ class StateMachine:
             "awake": AwakeState,
             "dj_mode": DJModeState,
             "searching_for_opponent": SearchingForOpponentState,
-            "negotiating_with_opponent": NegotiatingWithOpponentState,
+            "simon_says_round_sync": SimonSaysRoundSyncState,
             "simon_says_challenge": SimonSaysChallengeState,
             "simon_says_guessing": SimonSaysGuessingState,
         }
