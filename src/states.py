@@ -76,10 +76,19 @@ class BaseState:
             if button.pin == pin:
                 return i
 
-    def wifi_message_callback(self, arg):
-        self.log("Processing wifi message: %s" % str(arg))
+    def wifi_message_callback(self, message):
+        print("<-msg recv " + str(message))
 
-        mac, body = arg
+        mac, text = message
+
+        if not text.startswith(b"r00tz27 "):
+            # not a message we can understand
+            return
+
+        body = text[len(b"r00tz27 ") :]  # strip the leading word
+
+        self.log("Processing wifi message: %s" % body)
+
         if self.last_wifi_message_received == (mac, body):
             self.log("Dropping message as dupe")
             return

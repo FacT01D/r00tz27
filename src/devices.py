@@ -235,7 +235,6 @@ class WiFi:
 
         espnow.init()
         espnow.set_pmk("0123456789abcdef")
-        espnow.set_recv_cb(self.on_espnow_message)
         self.add_espnow_peer(WiFi.BROADCAST_ADDR)
 
     def off(self):
@@ -255,22 +254,7 @@ class WiFi:
         espnow.send(WiFi.BROADCAST_ADDR, text)
 
     def on_espnow_message(self, message):
-        print("<-msg recv " + str(message))
-
-        if not self.msg_callback:
-            print("<-no callbacks")
-            return
-
-        mac, text = message
-
-        if not text.startswith(b"r00tz27 "):
-            # not a message we can understand
-            print("<- trash")
-            return
-
-        body = text[len(b"r00tz27 ") :]
-
-        micropython.schedule(self.msg_callback, (mac, body))
+        micropython.schedule(self.msg_callback, message)
 
     def add_espnow_peer(self, addr):
         if addr in self.peer_list:
@@ -291,6 +275,8 @@ class WiFi:
 
     def register_msg_callback(self, callback):
         self.msg_callback = callback
+        espnow.set_recv_cb(self.on_espnow_message)
 
     def clear_callback(self):
         self.msg_callback = None
+        espnow.set_recv_cb(None)
