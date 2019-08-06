@@ -233,6 +233,7 @@ class WiFi:
     def __init__(self):
         self.msg_callbacks = []
         self.wlan = network.WLAN(network.AP_IF)
+        self.peer_list = []
 
     def on(self):
         self.wlan.active(True)
@@ -247,8 +248,11 @@ class WiFi:
     def off(self):
         espnow.deinit()
         self.wlan.active(False)
+        self.peer_list = []
 
     def send_message(self, mac, body):
+        print("->msg send %s (from %s)" % (body, mac))
+
         self.add_espnow_peer(mac)
         text = "r00tz27 %s" % body
         espnow.send(mac, text)
@@ -267,13 +271,17 @@ class WiFi:
         _, *body = text.split(b" ")
         body = b" ".join(body)
 
-        print("ESPNOW message: %s (from %s)" % (body, mac))
-        print("ESPNOW callbacks: %s" % len(self.msg_callbacks))
+        print("<-msg recv %s (from %s)" % (body, mac))
 
         for callback in self.msg_callbacks:
             callback(mac, body)
 
     def add_espnow_peer(self, addr):
+        if addr in self.peer_list:
+            return
+
+        self.peer_list.append(addr)
+
         try:
             espnow.add_peer(self.wlan, addr)
         except OSError as err:
