@@ -4,7 +4,6 @@ from .devices import Button, Buzzer, LED, Lights, WiFi
 from .states import (
     AwakeState,
     DJModeState,
-    FirstBootState,
     SearchingForOpponentState,
     SimonSaysRoundSyncState,
     SimonSaysChallengeState,
@@ -30,7 +29,6 @@ class StateMachine:
         ## all possible states of the board
 
         self.states = {
-            "first_boot": FirstBootState,
             "awake": AwakeState,
             "dj_mode": DJModeState,
             "searching_for_opponent": SearchingForOpponentState,

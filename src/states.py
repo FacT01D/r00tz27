@@ -88,9 +88,6 @@ class BaseState:
 class AwakeState(BaseState):
     """A simple state to jump into other states."""
 
-    def on_enter(self):
-        machine.reset()
-
     def on_button_push(self, button_number):
         self.log("button pushed: %s" % button_number)
         if button_number == 3:
@@ -105,11 +102,6 @@ class AwakeState(BaseState):
         elif button_number == 1:
             time.sleep(0.5)
             return self.state_machine.buzzer.random_song()
-
-
-class FirstBootState(AwakeState):
-    def on_enter(self):
-        pass  # dont reboot on first boot
 
 
 class DJModeState(BaseState):
@@ -205,11 +197,11 @@ class SimonSaysRoundSyncState(BaseState):
         if self.did_lose:
             # end the game as a loser
             self.state_machine.lights.all_blink(times=2)
-            return self.state_machine.go_to_state("awake")  # TODO - go where?
+            return machine.reset()  # TODO - go where?
         elif self.rnd >= SimonSaysRoundSyncState.MAX_ROUNDS:
             # end the game as a winner
             self.state_machine.lights.confetti(times=10)
-            return self.state_machine.go_to_state("awake")  # TODO - go where?
+            return machine.reset()  # TODO - go where?
         else:
             # go to next round after flashing lights
             self.state_machine.lights.all_blink(times=2)
@@ -255,15 +247,15 @@ class SimonSaysRoundSyncState(BaseState):
 
     def you_win(self):
         self.state_machine.lights.confetti(times=10)
-        return self.state_machine.go_to_state("awake")  # TODO - go where?
+        return machine.reset()  # TODO - go where?
 
     def you_lose(self):
         self.state_machine.lights.all_blink(times=2)
-        return self.state_machine.go_to_state("awake")  # TODO - go where?
+        return machine.reset()  # TODO - go where?
 
     def both_lose(self):
         self.state_machine.lights.all_blink(times=4)
-        return self.state_machine.go_to_state("awake")  # TODO - go where?
+        return machine.reset()  # TODO - go where?
 
 
 class SimonSaysChallengeState(BaseState):

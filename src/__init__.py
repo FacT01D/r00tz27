@@ -13,4 +13,4 @@ import micropython
 micropython.alloc_emergency_exception_buf(100)
 
 if __name__ == "r00tz27":
-    state_machine = StateMachine(initial_state="first_boot")
+    state_machine = StateMachine(initial_state="awake")
