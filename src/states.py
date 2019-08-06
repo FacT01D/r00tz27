@@ -171,9 +171,11 @@ class SimonSaysRoundSyncState(BaseState):
                 # first round, seed the random number generator
                 random.seed(seed)
 
+            self.state_machine.quiet_lights.all_on()
+
             # send state to opponent -- if they aren't listening yet,
             # we'll send it again when they send us their state
-            self.send_game_state()
+            return self.send_game_state()
 
             # TODO -- expire this state if we lose contact with the opponent somehow
         else:
@@ -183,7 +185,7 @@ class SimonSaysRoundSyncState(BaseState):
                 # first round, seed the random number generator with an actual random number
                 random.seed(machine.random(0, 99999))
 
-            self.handle_round()
+            return self.handle_round()
 
     def create_new_challenge(self, length):
         return [random.randint(0, 3) for _ in range(0, length)]
@@ -209,7 +211,7 @@ class SimonSaysRoundSyncState(BaseState):
                 multiplayer_info=self.multiplayer_info,
             )
 
-    def send_game_state(self, *args):
+    def send_game_state(self):
         mac, seed = self.multiplayer_info
         game_state = {"round_finished": self.rnd, "did_lose": self.did_lose}
 
@@ -223,6 +225,7 @@ class SimonSaysRoundSyncState(BaseState):
 
         self.clear_wifi_message_callback()  # don't handle any more messages
         self.send_game_state()  # so the two boards react in sync
+        self.state_machine.quiet_lights.all_off()
 
         json_blob = msg[len(b"game_state: ") :]  # truncate msg up to the json
         opponent = json.loads(json_blob)
@@ -231,13 +234,13 @@ class SimonSaysRoundSyncState(BaseState):
             raise Exception("??? wtf ???")  # TODO - what do you do?
 
         if not self.did_lose and opponent["did_lose"]:  # you won
-            self.you_win()
-        if self.did_lose and not opponent["did_lose"]:  # you lost
-            self.you_lose()
+            return self.you_win()
+        elif self.did_lose and not opponent["did_lose"]:  # you lost
+            return self.you_lose()
         elif self.did_lose and opponent["did_lose"]:  # both lost
-            self.both_lose()
+            return self.both_lose()
         else:  # both win
-            self.handle_round()  # go to the next round
+            return self.handle_round()  # go to the next round
 
     def you_win(self):
         self.state_machine.lights.confetti(times=10)
