@@ -17,6 +17,8 @@ List of ports with attached boards:
 - COM3 (Silicon Labs)
 ```
 
+COM ports can be different depending on your computer. On Windows: serial ports show up as COM1. MacOS: you might see /dev/cu.. On Linux: /dev/tty
+
 Open two terminals (one for each board) and put in the ports you found.
 ```bash
 $ python push.py COM3
