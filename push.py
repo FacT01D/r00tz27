@@ -12,6 +12,8 @@
 from mp.mpfshell import MpFileShell
 from mp.mpfexp import RemoteIOError
 from serial.tools import list_ports
+
+from datetime import datetime
 import os, sys
 
 if len(sys.argv) != 2:
@@ -52,6 +54,9 @@ def rsync_src_directory_with_board(mpfs):
         mpfs.fe.put(local_file_path, remote_file_path)
 
     mpfs.do_exec("""machine.nvs_setstr("system", "default_app", "r00tz27")""")
+
+    time_tuple = (datetime.now().timetuple())[0:5]
+    mpfs.do_exec("machine.RTC().init(%s)" % str(time_tuple))
 
 
 mpfs = MpFileShell(color=True, caching=False, reset=False)

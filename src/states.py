@@ -108,7 +108,7 @@ class BaseState:
             self.state_machine.wifi.clear_callback()
 
     def log(self, msg):
-        print("%s\t %s: \t %s" % (time.time(), self.__class__.__name__, msg))
+        print("%s  \t%s: \t %s" % (time.time(), self.__class__.__name__, msg))
 
 
 class AwakeState(BaseState):
