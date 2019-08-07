@@ -19,10 +19,12 @@ import os, sys
 if len(sys.argv) != 2:
     print("Usage: push.py [board port]\n\nList of ports with attached boards:")
 
-    ports = list_ports.grep("Silicon Labs")
-    if not ports:
-        print("-> No boards seem to be attached to this computer.")
-        sys.exit(1)
+    ports = list(list_ports.grep("Silicon Labs"))
+    if len(ports) == 0:
+        ports = list(list_ports.grep("CP2104"))
+        if len(ports) == 0:
+            print("-> No boards seem to be attached to this computer.")
+            sys.exit(1)
 
     for port in ports:
         print("- %s (%s)" % (port.device, port.manufacturer))
@@ -61,9 +63,13 @@ def rsync_src_directory_with_board(mpfs):
 
 mpfs = MpFileShell(color=True, caching=False, reset=False)
 
+port = sys.argv[1]
+if port.startswith("/dev/"):
+    port = port[len("/dev/"):]
+
 while True:
     try:
-        mpfs.do_open(sys.argv[1])
+        mpfs.do_open(port)
 
         try:
             rsync_src_directory_with_board(mpfs)
