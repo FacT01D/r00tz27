@@ -3,7 +3,7 @@ import machine, micropython, time
 from .devices import Button, Buzzer, LED, Lights, WiFi
 from .states import (
     AwakeState,
-    DJModeState,
+    DancePartyState,
     SearchingForOpponentState,
     SimonSaysRoundSyncState,
     SimonSaysChallengeState,
@@ -33,7 +33,7 @@ class StateMachine:
 
         self.states = {
             "awake": AwakeState(state_machine=self),
-            "dj_mode": DJModeState(state_machine=self),
+            "dance_party": DancePartyState(state_machine=self),
             "searching_for_opponent": SearchingForOpponentState(state_machine=self),
             "simon_says_round_sync": SimonSaysRoundSyncState(state_machine=self),
             "simon_says_challenge": SimonSaysChallengeState(state_machine=self),

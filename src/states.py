@@ -124,16 +124,63 @@ class AwakeState(BaseState):
         if button_number == 2:
             return self.state_machine.go_to_state("simon_says_round_sync")
         elif button_number == 0:
-            return self.state_machine.go_to_state("dj_mode")
+            return self.state_machine.go_to_state("dance_party")
         elif button_number == 1:
             time.sleep(0.5)
             return self.state_machine.buzzer.random_song()
 
 
-class DJModeState(BaseState):
-    """A state that just lets you play music. Exit it by hitting the reset button on the back."""
+class DancePartyState(BaseState):
+    """
+    A state that flashes many different combinations of lights at an 
+    ~approximate~ dance beat for 2.5 minutes.
+    """
 
-    pass
+    def on_enter(self):
+        self.state_machine.quiet_lights.chase(times=8)
+        self.state_machine.quiet_lights.all_blink(times=4)
+        self.state_machine.quiet_lights.confetti(times=32)
+        self.state_machine.quiet_lights.cycle(times=4)
+        self.state_machine.quiet_lights.all_blink(times=4)
+        self.state_machine.quiet_lights.chase(times=8)
+        self.state_machine.quiet_lights.all_blink(times=8)
+        self.state_machine.quiet_lights.confetti(times=24)
+        self.state_machine.quiet_lights.all_blink(times=4)
+        self.state_machine.quiet_lights.cycle(times=4)
+        self.state_machine.quiet_lights.chase(times=8)
+        self.state_machine.quiet_lights.all_blink(times=4)
+        self.state_machine.quiet_lights.confetti(times=24)
+        self.state_machine.quiet_lights.cycle(times=4)
+        self.state_machine.quiet_lights.all_blink(times=8)
+        self.state_machine.quiet_lights.chase(times=20)
+        self.state_machine.quiet_lights.all_blink(times=4)
+        self.state_machine.quiet_lights.confetti(times=32)
+        self.state_machine.quiet_lights.cycle(times=4)
+        self.state_machine.quiet_lights.chase(times=20)
+        self.state_machine.quiet_lights.all_blink(times=4)
+        self.state_machine.quiet_lights.confetti(times=20)
+        self.state_machine.quiet_lights.all_blink(times=4)
+        self.state_machine.quiet_lights.cycle(times=4)
+        self.state_machine.quiet_lights.chase(times=12)
+        self.state_machine.quiet_lights.all_blink(times=4)
+        self.state_machine.quiet_lights.confetti(times=32)
+        self.state_machine.quiet_lights.cycle(times=4)
+        self.state_machine.quiet_lights.chase(times=12)
+        self.state_machine.quiet_lights.all_blink(times=4)
+        self.state_machine.quiet_lights.confetti(times=16)
+        self.state_machine.quiet_lights.all_blink(times=4)
+        self.state_machine.quiet_lights.cycle(times=4)
+        self.state_machine.quiet_lights.all_blink(times=4)
+        self.state_machine.quiet_lights.chase(times=20)
+        self.state_machine.quiet_lights.all_blink(times=8)
+        self.state_machine.quiet_lights.confetti(times=32)
+        self.state_machine.quiet_lights.cycle(times=4)
+        self.state_machine.quiet_lights.all_blink(times=4)
+        self.state_machine.lights.confetti(times=8)
+        return self.state_machine.go_to_state("awake")
+
+    def on_button_release(self, pin):
+        return self.state_machine.go_to_state("awake")
 
 
 class SearchingForOpponentState(BaseState):

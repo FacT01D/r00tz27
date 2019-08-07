@@ -217,6 +217,18 @@ class Lights:
         p0.duty(0)
         p1.duty(0)
 
+    def chase(self, times=1):
+        while times:
+            times -= 1
+            self[0].blink()
+            time.sleep(0.01)
+            self[1].blink()
+            time.sleep(0.01)
+            self[3].blink()
+            time.sleep(0.01)
+            self[2].blink()
+            time.sleep(0.01)
+
 
 # Unfortunately, this needs to be defined as a global variable to avoid
 # random core panics upon some ESP NOW callbacks
