@@ -1,4 +1,4 @@
-import espnow, json, machine, network, random, time
+import espnow, json, machine, micropython, network, random, time
 
 
 class BaseState:
@@ -78,7 +78,7 @@ class BaseState:
                 return i
 
     def wifi_message_callback(self, message):
-        print("<-msg recv " + str(message))
+        self.log("wifi_message_callback: " + str(message))
 
         mac, text = message
 
@@ -108,7 +108,7 @@ class BaseState:
             self.state_machine.wifi.clear_callback()
 
     def log(self, msg):
-        print("  %s: %s" % (self.__class__.__name__, msg))
+        print("%s\t %s: \t %s" % (time.time(), self.__class__.__name__, msg))
 
 
 class AwakeState(BaseState):

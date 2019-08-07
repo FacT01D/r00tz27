@@ -218,6 +218,11 @@ class Lights:
         p1.duty(0)
 
 
+# Unfortunately, this needs to be defined as a global variable to avoid
+# random core panics upon some ESP NOW callbacks
+espnow_callback_fn = None
+
+
 class WiFi:
     """
     Wraps board-to-board wireless comms (including ESPNOW) into a nicer API.
@@ -226,17 +231,24 @@ class WiFi:
     BROADCAST_ADDR = b"\xFF" * 6
 
     def __init__(self):
-        self.msg_callback = None
         self.wlan = network.WLAN(network.AP_IF)
         self.peer_list = []
 
+        global espnow_callback_fn
+        espnow_callback_fn = self.on_espnow_message
+
+        self.msg_callback = None
+
     def on(self):
+        global espnow_callback_fn
+
         self.wlan.active(True)
         self.wlan.config(channel=1)
         self.wlan.config(protocol=network.MODE_LR)
 
         espnow.init()
         espnow.set_pmk("0123456789abcdef")
+        espnow.set_recv_cb(espnow_callback_fn)
         self.add_espnow_peer(WiFi.BROADCAST_ADDR)
 
     def off(self):
@@ -245,7 +257,7 @@ class WiFi:
         self.peer_list = []
 
     def send_message(self, mac, body):
-        print("->msg send %s (from %s)" % (body, mac))
+        self.log("->msg send %s (from %s)" % (body, mac))
 
         self.add_espnow_peer(mac)
         text = "r00tz27 %s" % body
@@ -256,7 +268,12 @@ class WiFi:
         espnow.send(WiFi.BROADCAST_ADDR, text)
 
     def on_espnow_message(self, message):
+        self.log("<-on_espnow_message: scheduling callback")
+        if not self.msg_callback:
+            self.log("<-on_espnow_message: no callback")
+            return
         micropython.schedule(self.msg_callback, message)
+        self.log("<-on_espnow_message: callback scheduled")
 
     def add_espnow_peer(self, addr):
         if addr in self.peer_list:
@@ -277,8 +294,9 @@ class WiFi:
 
     def register_msg_callback(self, callback):
         self.msg_callback = callback
-        espnow.set_recv_cb(self.on_espnow_message)
 
     def clear_callback(self):
         self.msg_callback = None
-        espnow.set_recv_cb(None)
+
+    def log(self, s):
+        print("%s\t%s" % (time.time(), s))

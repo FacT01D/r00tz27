@@ -1,4 +1,4 @@
-import machine
+import machine, micropython, time
 
 from .devices import Button, Buzzer, LED, Lights, WiFi
 from .states import (
@@ -26,18 +26,21 @@ class StateMachine:
 
     def __init__(self, initial_state="awake"):
 
-        ## all possible states of the board
+        # all possible states of the board.
+        # we give each state a reference to this state machine object so
+        # it can control the state machine's variables (e.g. remap button handlers) and
+        # it can call go_to_state to the next state.
 
         self.states = {
-            "awake": AwakeState,
-            "dj_mode": DJModeState,
-            "searching_for_opponent": SearchingForOpponentState,
-            "simon_says_round_sync": SimonSaysRoundSyncState,
-            "simon_says_challenge": SimonSaysChallengeState,
-            "simon_says_guessing": SimonSaysGuessingState,
+            "awake": AwakeState(state_machine=self),
+            "dj_mode": DJModeState(state_machine=self),
+            "searching_for_opponent": SearchingForOpponentState(state_machine=self),
+            "simon_says_round_sync": SimonSaysRoundSyncState(state_machine=self),
+            "simon_says_challenge": SimonSaysChallengeState(state_machine=self),
+            "simon_says_guessing": SimonSaysGuessingState(state_machine=self),
         }
 
-        ## initialize hardware devices
+        # initialize hardware devices
 
         self.wifi = WiFi()
         self.wifi.on()
@@ -70,6 +73,8 @@ class StateMachine:
                 raise
 
         self.current_state = None
+        self.next_state = None
+        self.callback_fn = self.callback
         self.go_to_state(initial_state)
 
     def go_to_state(self, name, **kwargs):
@@ -85,12 +90,13 @@ class StateMachine:
         self.timer.deinit()
         self.lights.all_off()
 
-        def callback(timer):
-            self._go_to_state(name, **kwargs)
+        self.next_state = (name, kwargs)
 
-        self.state_change_timer.init(
-            period=20, mode=machine.Timer.ONE_SHOT, callback=callback
-        )
+        micropython.schedule(self.callback_fn, 0)
+
+    def callback(self, timer):
+        name, kwargs = self.next_state
+        self._go_to_state(name, **kwargs)
 
     def _go_to_state(self, name, **kwargs):
         """
@@ -104,17 +110,15 @@ class StateMachine:
         old_state_class_name = (
             self.current_state.__class__.__name__ if self.current_state else None
         )
-        new_state_class_name = self.states[name].__name__
-        print("State change: %s to %s" % (old_state_class_name, new_state_class_name))
+        new_state_class_name = self.states[name].__class__.__name__
+        print(
+            "%s\t transition %s -> %s"
+            % (time.time(), old_state_class_name, new_state_class_name)
+        )
 
         if self.current_state:
             self.current_state.exit()  # call the exit() method on the old state
 
-        # init a new object of the State class, and give it this state machine object so
-        # it can control the state machine's variables (e.g. remap button handlers) and
-        # it can call go_to_state to the next state.
-        # in a future design, instead of creating a new State object, we can reuse the
-        # same ones.
-        self.current_state = self.states[name](state_machine=self)
-
+        self.current_state = self.states[name]
+        self.current_state.__init__(state_machine=self)
         self.current_state.enter(**kwargs)  # call enter() on the new state
