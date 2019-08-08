@@ -223,9 +223,8 @@ class SearchingForOpponentState(BaseState):
     USE_WIFI = True
 
     def on_enter(self):
-        self.broadcast()
         self.state_machine.timer.init(
-            period=machine.random(300, 1000),
+            period=machine.random(500, 2000),
             mode=machine.Timer.PERIODIC,
             callback=self.broadcast,
         )
