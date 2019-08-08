@@ -148,8 +148,8 @@ class AwakeState(BaseState):
         )
 
     def on_button_push(self, button_number):
+        self.state_machine.buzzer.off()
         if button_number == 3:
-            self.state_machine.buzzer.off()
             return self.state_machine.go_to_state("searching_for_opponent")
 
     def on_button_release(self, button_number):
@@ -158,6 +158,9 @@ class AwakeState(BaseState):
         elif button_number == 0:
             return self.state_machine.go_to_state("dance_party")
         elif button_number == 1:
+            lights = self.state_machine.lights
+            lights.fade_out([lights.LED_TL, lights.LED_TR])
+
             rtc = machine.RTC()
             rtc.wake_on_ext0(self.state_machine.buttons[1].pin, level=0)
             return machine.deepsleep()
