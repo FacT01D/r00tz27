@@ -158,7 +158,9 @@ class AwakeState(BaseState):
         elif button_number == 0:
             return self.state_machine.go_to_state("dance_party")
         elif button_number == 1:
-            return  # TODO
+            rtc = machine.RTC()
+            rtc.wake_on_ext0(self.state_machine.buttons[1].pin, level=0)
+            return machine.deepsleep()
 
 
 class DancePartyState(BaseState):
