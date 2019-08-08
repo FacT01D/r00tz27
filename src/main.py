@@ -55,20 +55,12 @@ class StateMachine:
         self.lights = Lights(sync_with_buzzer=self.buzzer)
         self.quiet_lights = Lights()
 
-        try:
-            self.state_change_timer = machine.Timer(1)
-            self.timer = machine.Timer(2)
-        except ValueError as err:
-            # usually happens when being imported in REPL
-            if str(err) == "Timer already in use.":
-                # we need to setup timer #0 in extended mode to have more timers
-                self.tex = machine.Timer(0)
-                self.tex.init(mode=machine.Timer.EXTBASE)
+        # we need to setup timer #0 in extended mode to have more timers
+        self.tex = machine.Timer(0)
+        self.tex.init(mode=machine.Timer.EXTBASE)
 
-                self.state_change_timer = machine.Timer(3)
-                self.timer = machine.Timer(4)
-            else:
-                raise
+        self.state_change_timer = machine.Timer(1)
+        self.timer = machine.Timer(2)
 
         self.current_state = None
         self.next_state = None
