@@ -310,9 +310,8 @@ class WiFi:
         if not self.msg_callback:
             self.log("<-on_espnow_message: no callback")
             return
-        # micropython.schedule(self.msg_callback, message)
-        self.msg_callback(message)
-        self.log("<-on_espnow_message: callback done")
+        micropython.schedule(self.msg_callback, message)
+        self.log("<-on_espnow_message: callback scheduled")
 
     def add_espnow_peer(self, addr):
         if addr in self.peer_list:
