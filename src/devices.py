@@ -32,7 +32,7 @@ class Button:
         if not self.callback:
             return
 
-        micropython.schedule(self.callback, pin)
+        self.callback(pin)
 
     def disable(self):
         self.pin.init(handler=None, trigger=Pin.IRQ_DISABLE)
