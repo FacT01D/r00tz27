@@ -114,6 +114,39 @@ class BaseState:
 class AwakeState(BaseState):
     """A simple state to jump into other states."""
 
+    def on_enter(self):
+        lights = self.state_machine.lights
+        lights.fade_in([lights.LED_TL, lights.LED_TR])
+
+        self.state_machine.timer.init(
+            period=machine.random(20000, 45000),
+            mode=machine.Timer.ONE_SHOT,
+            callback=self.do_an_eye_thing,
+        )
+
+    def on_exit(self):
+        lights = self.state_machine.lights
+        lights.fade_out([lights.LED_TL, lights.LED_TR])
+
+    def do_an_eye_thing(self, *args):
+        lights = self.state_machine.lights
+        thing = machine.random(0, 5)
+        if thing <= 3:  # blink
+            lights.fade_out([lights.LED_TL, lights.LED_TR])
+            lights.fade_in([lights.LED_TL, lights.LED_TR], speed=2)
+        elif thing == 4:  # wink left eye
+            lights.fade_out([lights.LED_TL])
+            lights.fade_in([lights.LED_TL], speed=2)
+        elif thing == 5:
+            lights.fade_out([lights.LED_TR])
+            lights.fade_in([lights.LED_TR], speed=2)
+
+        self.state_machine.timer.init(
+            period=machine.random(20000, 45000),
+            mode=machine.Timer.ONE_SHOT,
+            callback=self.do_an_eye_thing,
+        )
+
     def on_button_push(self, button_number):
         self.log("button pushed: %s" % button_number)
         if button_number == 3:
