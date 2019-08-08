@@ -115,6 +115,8 @@ class AwakeState(BaseState):
     """A simple state to jump into other states."""
 
     def on_enter(self):
+        self.state_machine.quiet_lights.all_off()
+
         lights = self.state_machine.lights
         lights.fade_in([lights.LED_TL, lights.LED_TR])
 
