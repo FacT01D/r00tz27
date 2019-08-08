@@ -113,7 +113,7 @@ class LED:
     """
 
     def __init__(self, pin=13, buzzer=None, note=None):
-        self.pin = Pin(pin, Pin.OUT)
+        self.pin = Pin(pin, Pin.INOUT)
 
         self.buzzer = None
         if buzzer and note:
@@ -140,6 +140,12 @@ class LED:
             if times > 0:
                 time.sleep(duration)
 
+    def toggle(self):
+        if self.pin.value() == 0:
+            self.on()
+        else:
+            self.off()
+
 
 class Lights:
     """
@@ -151,7 +157,7 @@ class Lights:
     """
 
     def __init__(self, sync_with_buzzer=None):
-        led_pins = [26, 25, 4, 21]
+        led_pins = [26, 25, 4, 21]  # top right, bottom right, top left, bottom left
         buzzer_notes = ["a", "b", "d", "g"]
 
         self.leds = [
