@@ -7,12 +7,6 @@ from .rtttl import RTTTL
 from .songs import random_song
 
 
-def random_choice(from_list):
-    """A helper function to randomly pick an item from a list"""
-    idx = random(0, len(from_list) - 1)
-    return from_list[idx]
-
-
 class Button:
     """
     A button that does something when pushed.
@@ -190,7 +184,9 @@ class Lights:
         last_led = None
         while times:
             times -= 1
-            last_led = random_choice([led for led in self.leds if led != last_led])
+            # randomly pick an led that is different from the last one that flashed
+            all_leds_except_last = [led for led in self.leds if led != last_led]
+            last_led = all_leds_except_last[random(0, len(all_leds_except_last) - 1)]
             last_led.blink()
 
     def all_blink(self, times=5):
