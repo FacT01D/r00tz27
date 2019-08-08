@@ -6,6 +6,13 @@ import espnow, math, micropython, network, time
 from .rtttl import RTTTL
 from .songs import random_song
 
+led_pwms = {
+    26: PWM(26, freq=1000, duty=0, timer=3),
+    25: PWM(25, freq=1000, duty=0, timer=3),
+    4: PWM(4, freq=1000, duty=0, timer=3),
+    21: PWM(21, freq=1000, duty=0, timer=3),
+}
+
 
 class Button:
     """
@@ -107,7 +114,7 @@ class LED:
     """
 
     def __init__(self, pin=13, buzzer=None, note=None):
-        self.pin = Pin(pin, Pin.INOUT)
+        self.pwm = led_pwms[pin]
 
         self.buzzer = None
         if buzzer and note:
@@ -115,14 +122,17 @@ class LED:
             self.note = note
 
     def on(self):
-        self.pin.value(1)
+        self.pwm.duty(100)
         if self.buzzer:
             self.buzzer.on(self.note)
 
     def off(self):
-        self.pin.value(0)
+        self.pwm.duty(0)
         if self.buzzer:
             self.buzzer.off()
+
+    def duty(self, n):
+        self.pwm.duty(n)
 
     def blink(self, duration=0.1, times=1):
         while times:
@@ -134,12 +144,6 @@ class LED:
             if times > 0:
                 time.sleep(duration)
 
-    def toggle(self):
-        if self.pin.value() == 0:
-            self.on()
-        else:
-            self.off()
-
 
 class Lights:
     """
@@ -149,6 +153,11 @@ class Lights:
         lights.confetti()
         lights[0].blink()
     """
+
+    LED_TR = 0
+    LED_BR = 1
+    LED_TL = 2
+    LED_BL = 3
 
     def __init__(self, sync_with_buzzer=None):
         led_pins = [26, 25, 4, 21]  # top right, bottom right, top left, bottom left
@@ -165,6 +174,28 @@ class Lights:
 
     def __len__(self):
         return len(self.leds)
+
+    def fade_in(self, led_nums, speed=1):
+        leds = [self.leds[i] for i in led_nums]
+        # some magic numbers that make the math work
+        for i in range(15, 26):
+            d = ((int(math.sin(i / 10 * math.pi) * 500 + 500)) / 1024.0) * 100.0
+            for led in leds:
+                led.duty(d)
+            time.sleep_ms(round(50 * (1 / speed)))
+
+    def fade_out(self, led_nums):
+        leds = [self.leds[i] for i in led_nums]
+        for i in range(26, 36):
+            d = ((int(math.sin(i / 10 * math.pi) * 500 + 500)) / 1024.0) * 100.0
+            for led in leds:
+                led.duty(d)
+            time.sleep_ms(20)
+
+    def opponent_found(self):
+        self.fade_in([self.LED_BR])
+        time.sleep(1)
+        self.fade_out([self.LED_BR, self.LED_BL])
 
     def cycle(self, times=1):
         while times:
@@ -206,18 +237,6 @@ class Lights:
     def all_on(self):
         for led in self.leds:
             led.on()
-
-    def flash_eyes(self):
-        p0 = PWM(self.leds[0].pin, freq=1000)
-        p1 = PWM(self.leds[2].pin, freq=1000)
-        for i in range(20):
-            d = ((int(math.sin(i / 10 * math.pi) * 500 + 500)) / 1024.0) * 100.0
-            p0.duty(d)
-            p1.duty(d)
-            time.sleep_ms(50)
-
-        p0.duty(0)
-        p1.duty(0)
 
     def chase(self, times=1):
         while times:

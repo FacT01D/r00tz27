@@ -117,6 +117,7 @@ class AwakeState(BaseState):
     def on_button_push(self, button_number):
         self.log("button pushed: %s" % button_number)
         if button_number == 3:
+            self.state_machine.buzzer.off()
             return self.state_machine.go_to_state("searching_for_opponent")
 
     def on_button_release(self, button_number):
@@ -216,6 +217,9 @@ class SearchingForOpponentState(BaseState):
             )
             self.clear_wifi_message_callback()  # just to make sure this isnt triggered again
 
+            self.state_machine.timer.deinit()
+            self.unbind_buttons()
+            self.state_machine.quiet_lights.opponent_found()
             return self.state_machine.go_to_state(
                 "simon_says_round_sync", multiplayer_info=(mac, seed)
             )
@@ -223,6 +227,10 @@ class SearchingForOpponentState(BaseState):
             self.clear_wifi_message_callback()  # just to make sure this isnt triggered again
 
             seed = int(msg.split(b" ")[1])
+
+            self.state_machine.timer.deinit()
+            self.unbind_buttons()
+            self.state_machine.quiet_lights.opponent_found()
 
             return self.state_machine.go_to_state(
                 "simon_says_round_sync", multiplayer_info=(mac, seed)
@@ -251,7 +259,12 @@ class SimonSaysRoundSyncState(BaseState):
                 # first round, seed the random number generator
                 random.seed(seed)
 
-            self.state_machine.quiet_lights.all_on()
+            else:
+                self.state_machine.timer.init(
+                    period=250,
+                    mode=machine.Timer.ONE_SHOT,
+                    callback=self.turn_on_waiting_lights,
+                )
 
             # send state to opponent -- if they aren't listening yet,
             # we'll send it again when they send us their state
@@ -280,8 +293,9 @@ class SimonSaysRoundSyncState(BaseState):
             self.state_machine.lights.confetti(times=10)
             return self.game_over()
         else:
-            # go to next round after flashing lights
-            self.state_machine.lights.all_blink(times=2)
+            # go to next round after flashing lights if necessary
+            if self.rnd != 0:
+                self.state_machine.quiet_lights.all_blink(times=2)
             time.sleep(0.2)
 
             return self.state_machine.go_to_state(
@@ -307,7 +321,8 @@ class SimonSaysRoundSyncState(BaseState):
 
         self.clear_wifi_message_callback()  # don't handle any more messages
         self.send_game_state()  # so the two boards react in sync
-        self.state_machine.quiet_lights.all_off()
+        self.state_machine.timer.deinit()  # disable the timer to turn on the waiting lights
+        self.state_machine.quiet_lights.all_off()  # if they are on
 
         json_blob = msg[len(b"game_state: ") :]  # truncate msg up to the json
         opponent = json.loads(json_blob)
@@ -341,6 +356,9 @@ class SimonSaysRoundSyncState(BaseState):
         return self.state_machine.go_to_state(
             "awake"
         )  # TODO - what is the correct thing here?
+
+    def turn_on_waiting_lights(self, *args):
+        self.state_machine.quiet_lights.all_on()
 
 
 class SimonSaysChallengeState(BaseState):

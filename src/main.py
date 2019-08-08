@@ -54,8 +54,6 @@ class StateMachine:
         self.buzzer = Buzzer()
         self.lights = Lights(sync_with_buzzer=self.buzzer)
         self.quiet_lights = Lights()
-        self.board_led = LED(13)  # the tiny red LED on the board itself
-        self.board_led.on()  # turn it on for debug so we know our code is actually running
 
         try:
             self.state_change_timer = machine.Timer(1)
@@ -88,7 +86,6 @@ class StateMachine:
 
         # some cleanup first
         self.timer.deinit()
-        self.lights.all_off()
 
         self.next_state = (name, kwargs)
 
