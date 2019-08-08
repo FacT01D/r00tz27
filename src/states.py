@@ -148,20 +148,17 @@ class AwakeState(BaseState):
         )
 
     def on_button_push(self, button_number):
-        self.log("button pushed: %s" % button_number)
         if button_number == 3:
             self.state_machine.buzzer.off()
             return self.state_machine.go_to_state("searching_for_opponent")
 
     def on_button_release(self, button_number):
-        self.log("button released: %s" % button_number)
         if button_number == 2:
             return self.state_machine.go_to_state("simon_says_round_sync")
         elif button_number == 0:
             return self.state_machine.go_to_state("dance_party")
         elif button_number == 1:
-            time.sleep(0.5)
-            return self.state_machine.buzzer.random_song()
+            return  # TODO
 
 
 class DancePartyState(BaseState):
@@ -228,7 +225,7 @@ class SearchingForOpponentState(BaseState):
     def on_enter(self):
         self.broadcast()
         self.state_machine.timer.init(
-            period=machine.random(300, 600),
+            period=machine.random(300, 1000),
             mode=machine.Timer.PERIODIC,
             callback=self.broadcast,
         )
@@ -370,7 +367,9 @@ class SimonSaysRoundSyncState(BaseState):
             return self.you_lose()
         elif self.did_lose and opponent["did_lose"]:  # both lost
             return self.both_lose()
-        else:  # both win
+        elif self.rnd >= SimonSaysRoundSyncState.MAX_ROUNDS:  # both win
+            return self.both_win()
+        else:  # keep going
             return self.handle_round()  # go to the next round
 
     def you_win(self):
@@ -383,6 +382,12 @@ class SimonSaysRoundSyncState(BaseState):
 
     def both_lose(self):
         self.state_machine.lights.all_blink(times=4)
+        return self.game_over()
+
+    def both_win(self):
+        self.state_machine.quiet_lights.all_on()
+        self.state_machine.buzzer.play_song_num(self.multiplayer_info[1])
+        self.state_machine.quiet_lights.all_off()
         return self.game_over()
 
     def game_over(self):

@@ -47,3 +47,6 @@ def find_song(name):
 def random_song():
     return SONGS[machine.random(0, len(SONGS) - 1)]
 
+
+def song_num(num):
+    return SONGS[num % len(SONGS)]

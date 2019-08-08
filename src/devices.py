@@ -4,7 +4,7 @@ from machine import Pin, PWM, random
 import espnow, math, micropython, network, time
 
 from .rtttl import RTTTL
-from .songs import random_song
+from .songs import random_song, song_num
 
 led_pwms = {
     26: PWM(26, freq=1000, duty=0, timer=3),
@@ -95,6 +95,11 @@ class Buzzer:
 
     def random_song(self):
         tune = RTTTL(random_song())
+        for freq, duration in tune.notes():
+            self.tone(freq, duration)
+
+    def play_song_num(self, num):
+        tune = RTTTL(song_num(num))
         for freq, duration in tune.notes():
             self.tone(freq, duration)
 
@@ -305,8 +310,9 @@ class WiFi:
         if not self.msg_callback:
             self.log("<-on_espnow_message: no callback")
             return
-        micropython.schedule(self.msg_callback, message)
-        self.log("<-on_espnow_message: callback scheduled")
+        # micropython.schedule(self.msg_callback, message)
+        self.msg_callback(message)
+        self.log("<-on_espnow_message: callback done")
 
     def add_espnow_peer(self, addr):
         if addr in self.peer_list:
