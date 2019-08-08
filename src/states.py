@@ -406,6 +406,7 @@ class SimonSaysRoundSyncState(BaseState):
 class SimonSaysChallengeState(BaseState):
     def on_enter(self, challenge, rnd, multiplayer_info):
         self.unbind_buttons()  # buttons do nothing in this state
+        self.state_machine.lights.all_off()  # just to be safe
 
         # quick pause before displaying the challenge
         time.sleep(0.5)
