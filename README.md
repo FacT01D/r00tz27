@@ -1,6 +1,7 @@
 # r00tz badge code for DEF CON 27
 
 ## Pre-requisites:
+- Device Driver - https://www.silabs.com/products/development-tools/software/usb-to-uart-bridge-vcp-drivers
 - Python 3
 - `pip install esptool pyserial mpfshell`
 - a badge or two!
