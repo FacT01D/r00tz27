@@ -1,4 +1,4 @@
-import espnow, json, machine, micropython, network, random, time
+import binascii, espnow, json, machine, micropython, network, random, time
 
 
 class BaseState:
@@ -380,26 +380,45 @@ class SimonSaysRoundSyncState(BaseState):
 
     def you_win(self):
         self.state_machine.lights.confetti(times=10)
-        return self.game_over()
+        return self.game_over(i_won=True, they_won=False)
 
     def you_lose(self):
         self.state_machine.lights.all_blink(times=2)
-        return self.game_over()
+        return self.game_over(i_won=False, they_won=True)
 
     def both_lose(self):
         self.state_machine.lights.all_blink(times=4)
-        return self.game_over()
+        return self.game_over(i_won=False, they_won=False)
 
     def both_win(self):
         self.state_machine.quiet_lights.all_on()
         self.state_machine.buzzer.play_song_num(self.multiplayer_info[1])
         self.state_machine.quiet_lights.all_off()
-        return self.game_over()
+        return self.game_over(i_won=True, they_won=True)
 
-    def game_over(self):
-        return self.state_machine.go_to_state(
-            "awake"
-        )  # TODO - what is the correct thing here?
+    def save_game(self, i_won, they_won):
+        my_mac = binascii.hexlify(machine.unique_id()).decode("utf-8")
+        opponent_mac = binascii.hexlify(self.multiplayer_info[0]).decode("utf-8")
+        try:
+            games = json.loads(machine.nvs_getstr("r00tz27", "game_log"))
+        except TypeError:
+            games = []
+        games.append(
+            {
+                "challenge": self.multiplayer_info[1],
+                "my_mac": my_mac,
+                "i_won": i_won,
+                "opponent_mac": opponent_mac,
+                "they_won": they_won,
+            }
+        )
+        machine.nvs_setstr("r00tz27", "game_log", json.dumps(games))
+
+    def game_over(self, i_won=None, they_won=None):
+        if i_won is not None and they_won is not None:
+            self.save_game(i_won, they_won)
+
+        return self.state_machine.go_to_state("awake")
 
     def turn_on_waiting_lights(self, *args):
         self.state_machine.quiet_lights.all_on()

@@ -1,6 +1,7 @@
-import machine, micropython, time
+import json, machine, micropython, network, time, requests
 
 from .devices import Button, Buzzer, LED, Lights, WiFi
+from .ntp import set_NTP_time
 from .states import (
     AwakeState,
     DancePartyState,
@@ -59,8 +60,12 @@ class StateMachine:
         self.tex = machine.Timer(0)
         self.tex.init(mode=machine.Timer.EXTBASE)
 
-        self.state_change_timer = machine.Timer(1)
-        self.timer = machine.Timer(2)
+        self.timer = machine.Timer(1)
+        self.idle_tasks_timer = machine.Timer(2)
+
+        self.idle_tasks_timer.init(
+            period=60000, mode=machine.Timer.PERIODIC, callback=self.schedule_wifi_sync
+        )
 
         self.current_state = None
         self.next_state = None
@@ -75,6 +80,9 @@ class StateMachine:
         state_machine.go_to_state within a State's on_enter method without causing problems
         (as long as on_enter finishes in 20ms!)
         """
+
+        # reset the idle timer
+        self.idle_tasks_timer.period(60000)
 
         # some cleanup first
         self.timer.deinit()
@@ -111,3 +119,49 @@ class StateMachine:
         self.current_state = self.states[name]
         self.current_state.__init__(state_machine=self)
         self.current_state.enter(**kwargs)  # call enter() on the new state
+
+    def schedule_wifi_sync(self, timer):
+        micropython.schedule(self.wifi_sync, None)
+
+    def wifi_sync(self, *args):
+        sta_if = network.WLAN(network.STA_IF)
+        if not sta_if.isconnected():
+            print("wifi_sync: Connecting to wifi...")
+            sta_if.active(True)
+            sta_if.connect(
+                "r00tz Asylum", "putt,rawhide,supple,comatose,slump,recap,ashy"
+            )
+
+            timeout = 50
+            while timeout > 0:
+                if sta_if.isconnected():
+                    break
+                time.sleep_ms(100)
+                timeout -= 1
+            else:
+                print("wifi_sync: Failed to connect to wifi")
+                self.wifi.on()
+                return
+
+        set_NTP_time()
+
+        game_log = machine.nvs_getstr("r00tz27", "game_log")
+        if not game_log:
+            print("wifi_sync: No games saved, nothing to sync.")
+            self.wifi.on()
+            return
+
+        games = json.loads(game_log)
+        print(games)
+        while games:
+            game = games.pop(0)
+            resp = requests.post(
+                "https://r00tz27.onrender.com/record_games",
+                params={"json": json.dumps([game])},
+            )
+            print(resp)
+            if resp[0] == 200:
+                machine.nvs_setstr("r00tz27", "game_log", json.dumps(games))
+
+        print("wifi sync was a success.")
+        self.wifi.on()
