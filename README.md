@@ -3,7 +3,7 @@
 ## Pre-requisites:
 - Python 3
 - `pip install esptool pyserial mpfshell`
-- two HUZZAH32 boards flashed with the badge.team firmware
+- a badge or two!
 
 
 ## Pushing code to your boards
@@ -96,3 +96,5 @@ BADGE.TEAM
 Starting app 'r00tz27'...
 <...stdout from our code...>
 ```
+
+Thanks to [badge.team](https://github.com/badgeteam/ESP32-platform-firmware) for help with the firmware.
