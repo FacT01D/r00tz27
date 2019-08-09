@@ -2,38 +2,72 @@
 
 ## Pre-requisites:
 - Python 3
-- `pip install pyserial mpfshell`
+- `pip install esptool pyserial mpfshell`
 - two HUZZAH32 boards flashed with the badge.team firmware
 
 
 ## Pushing code to your boards
-First, connect the boards to your computer via USB. Then see if they're detected:
+First, connect the boards to your computer via USB. If you connect them one at a time, the `flash`
+script can do most of the work for you:
 ```bash
-$ python push.py
-Usage: push.py [board port]
+$ ./flash
+esptool.py v2.7
+Serial port /dev/cu.SLAB_USBtoUART
+Connecting........_
+Detecting chip type... ESP32
+Chip is ESP32D0WDQ6 (revision 1)
+Features: WiFi, BT, Dual Core, Coding Scheme None
+Crystal is 40MHz
+MAC: 30:ae:a4:1b:96:20
+Uploading stub...
+Running stub...
+Stub running...
+Erasing flash (this may take a while)...
+Chip erase completed successfully in 0.6s
+Hard resetting via RTS pin...
+esptool.py v2.7
+Serial port /dev/cu.SLAB_USBtoUART
+Connecting........__
+Chip is ESP32D0WDQ6 (revision 1)
+Features: WiFi, BT, Dual Core, Coding Scheme None
+Crystal is 40MHz
+MAC: 30:ae:a4:1b:96:20
+Uploading stub...
+Running stub...
+Stub running...
+Changing baud rate to 921600
+Changed.
+Configuring flash size...
+Auto-detected Flash size: 4MB
+Flash params set to 0x022f
+Compressed 18208 bytes to 11559...
+Wrote 18208 bytes (11559 compressed) at 0x00001000 in 0.2 seconds (effective 931.5 kbit/s)...
+Hash of data verified.
+Compressed 1166384 bytes to 751919...
+Wrote 1166384 bytes (751919 compressed) at 0x00010000 in 10.3 seconds (effective 903.5 kbit/s)...
+Hash of data verified.
+Compressed 3072 bytes to 142...
+Wrote 3072 bytes (142 compressed) at 0x00008000 in 0.0 seconds (effective 4390.3 kbit/s)...
+Hash of data verified.
 
-List of ports with attached boards:
-- COM4 (Silicon Labs)
-- COM3 (Silicon Labs)
-```
-
-COM ports can be different depending on your computer. On Windows: serial ports show up as COM1. MacOS: you might see /dev/cu.. On Linux: /dev/tty
-
-Open two terminals (one for each board) and put in the ports you found.
-```bash
-$ python push.py COM3
+Leaving...
+Hard resetting via RTS pin...
 Connected to BADGE.TEAM ESP32
-Deleting: lib/r00tz27/__init__.py
-Deleting: lib/r00tz27/devices.py
-Deleting: lib/r00tz27/main.py
-Deleting: lib/r00tz27/states.py
-Pushing: src\devices.py -> /lib/r00tz27/devices.py
-Pushing: src\main.py -> /lib/r00tz27/main.py
-Pushing: src\states.py -> /lib/r00tz27/states.py
-Pushing: src\__init__.py -> /lib/r00tz27/__init__.py
+Pushing: src/__init__.py -> /lib/r00tz27/__init__.py
+Pushing: src/songs.py -> /lib/r00tz27/songs.py
+Pushing: src/rtttl.py -> /lib/r00tz27/rtttl.py
+Pushing: src/main.py -> /lib/r00tz27/main.py
+Pushing: src/states.py -> /lib/r00tz27/states.py
+Pushing: src/devices.py -> /lib/r00tz27/devices.py
 Entering REPL. Usual shortcuts:
-...
->>> 
+ Ctrl+D - soft reset board
+ Ctrl+Q - push latest to board and restart REPL
+ Ctrl+Q+C - quit this program
+Ignore the following message:
+
+*** Exit REPL with Ctrl+] ***>
+
+>>>
 ```
 
 Now, you have a REPL in which you can type any Python code. Also, if everything went well, the contents of the `src/`  
@@ -62,7 +96,3 @@ BADGE.TEAM
 Starting app 'r00tz27'...
 <...stdout from our code...>
 ```
-
-CTRL+Q (to exit the REPL) will do a fresh push of code and start the REPL again.
-
-To quit the `push.py` script entirely, hit CTRL+Q (to exit the REPL) and CTRL+C (to exit the script).
