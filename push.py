@@ -16,9 +16,9 @@ from serial.tools import list_ports
 from datetime import datetime
 import os, sys
 
-if len(sys.argv) != 2:
-    print("Usage: push.py [board port]\n\nList of ports with attached boards:")
-
+if len(sys.argv) == 2:
+    port = sys.argv[1]
+else:
     ports = list(list_ports.grep("Silicon Labs"))
     if len(ports) == 0:
         ports = list(list_ports.grep("CP2104"))
@@ -26,10 +26,15 @@ if len(sys.argv) != 2:
             print("-> No boards seem to be attached to this computer.")
             sys.exit(1)
 
-    for port in ports:
-        print("- %s (%s)" % (port.device, port.manufacturer))
+    if len(ports) > 1:
+        print("Usage: push.py [board port]\n\nList of ports with attached boards:")
+        for port in ports:
+            print("- %s (%s)" % (port.device, port.manufacturer))
 
-    sys.exit(1)
+        sys.exit(1)
+
+    if len(ports) == 1:
+        port = ports[0].device
 
 
 def rsync_src_directory_with_board(mpfs):
@@ -63,28 +68,22 @@ def rsync_src_directory_with_board(mpfs):
 
 mpfs = MpFileShell(color=True, caching=False, reset=False)
 
-port = sys.argv[1]
 if port.startswith("/dev/"):
-    port = port[len("/dev/"):]
+    port = port[len("/dev/") :]
 
-while True:
-    try:
-        mpfs.do_open(port)
 
-        try:
-            rsync_src_directory_with_board(mpfs)
+mpfs.do_open(port)
 
-            print("Entering REPL. Usual shortcuts:")
-            print(" Ctrl+D - soft reset board")
-            print(" Ctrl+Q - push latest to board and restart REPL")
-            print(" Ctrl+Q+C - quit this program")
-            print("Ignore the following message: ")  # *** Exit REPL with Ctrl+Q ***
-            mpfs.do_repl(None)
-        finally:
-            mpfs.do_close(None)
-    except KeyboardInterrupt:
-        break
-    finally:
-        mpfs.do_close(None)
+try:
+    rsync_src_directory_with_board(mpfs)
+
+    print("Entering REPL. Usual shortcuts:")
+    print(" Ctrl+D - soft reset board")
+    print(" Ctrl+Q - push latest to board and restart REPL")
+    print(" Ctrl+Q+C - quit this program")
+    print("Ignore the following message: ")  # *** Exit REPL with Ctrl+Q ***
+    mpfs.do_repl(None)
+finally:
+    mpfs.do_close(None)
 
 print("Done.")
