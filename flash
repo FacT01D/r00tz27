@@ -2,7 +2,7 @@
 
 set -e
 
-esptool.py --port "`python print_port.py`" erase_flash
-esptool.py --chip esp32 --port "`python print_port.py`" --baud 921600 --before "default_reset" --after "hard_reset" write_flash -z --flash_mode "dio" --flash_freq "80m" --flash_size detect 0x1000 firmware/bootloader.bin 0x10000 firmware/firmware.bin 0x8000 firmware/generic_4MB.bin
+esptool.py --port "`python3 print_port.py`" erase_flash
+esptool.py --chip esp32 --port "`python3 print_port.py`" --baud 921600 --before "default_reset" --after "hard_reset" write_flash -z --flash_mode "dio" --flash_freq "80m" --flash_size detect 0x1000 firmware/bootloader.bin 0x10000 firmware/firmware.bin 0x8000 firmware/generic_4MB.bin
 sleep 2
-python push.py
+python3 push.py
