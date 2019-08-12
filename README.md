@@ -63,7 +63,7 @@ Pushing: src/devices.py -> /lib/r00tz27/devices.py
 Entering REPL. Usual shortcuts:
  Ctrl+D - soft reset board
  Ctrl+Q - push latest to board and restart REPL
- Ctrl+Q+C - quit this program
+ Ctrl+] - quit this program
 Ignore the following message:
 
 *** Exit REPL with Ctrl+] ***>
